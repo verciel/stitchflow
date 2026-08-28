@@ -304,6 +304,35 @@ body {
   text-transform: uppercase;
 }
 
+.breadcrumb-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.back-btn {
+  background: #ffffff;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 5px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-main);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.back-btn:hover {
+  background: #f4f6f8;
+  border-color: #cbd5e1;
+  color: var(--accent);
+}
+
+
 h1 {
   font-family: var(--font-display);
   font-size: 32px;

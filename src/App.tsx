@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
   ArchiveRestore,
-  Bot,
+  ArrowLeft,
   Boxes,
   Clock,
   Filter,
@@ -20,7 +20,6 @@ import {
   Tag as TagIcon,
   Trash2,
   X,
-  Zap,
 } from "lucide-react";
 import {
   deleteDesign,
@@ -29,7 +28,6 @@ import {
   listDesigns,
   listJobs,
   listTags,
-  naturalLanguageSearch,
   restoreDesign,
 } from "./lib";
 import type {
@@ -79,7 +77,6 @@ export const App: React.FC = () => {
 
   // Filter State
   const [query, setQuery] = useState("");
-  const [isAiSearchActive, setIsAiSearchActive] = useState(false);
   const [selectedFormat, setSelectedFormat] = useState<string>("all");
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [selectedCollectionId, setSelectedCollectionId] = useState<string | null>(null);
@@ -129,7 +126,7 @@ export const App: React.FC = () => {
       setAiConfig(aiConf);
       setRecycledDesigns(recList);
 
-      // Keep selected design fresh
+      // Keep selected design fresh if open
       if (selectedDesign) {
         const fresh = activeList.find((d) => d.id === selectedDesign.id);
         if (fresh) setSelectedDesign(fresh);
@@ -145,44 +142,30 @@ export const App: React.FC = () => {
     void reloadData();
   }, [query, selectedFormat, selectedTag, selectedCollectionId, selectedJobId, sortBy]);
 
-  const handleSearchChange = async (val: string) => {
-    setQuery(val);
-    if (isAiSearchActive && val.trim().length > 3) {
-      try {
-        const parsed = await naturalLanguageSearch(val);
-        if (parsed.format && parsed.format !== selectedFormat) {
-          setSelectedFormat(parsed.format);
-        }
-      } catch (err) {
-        console.error("AI natural search error:", err);
-      }
-    }
-  };
-
   const handleResetFilters = () => {
     setQuery("");
     setSelectedFormat("all");
     setSelectedTag(null);
-    setSelectedCollectionId(null);
-    setSelectedJobId(null);
   };
 
   const hasActiveFilters =
     query ||
     selectedFormat !== "all" ||
-    selectedTag ||
-    selectedCollectionId ||
-    selectedJobId;
+    selectedTag;
 
-  const activeCollectionName = useMemo(() => {
+  const activeCollection = useMemo(() => {
     if (!selectedCollectionId) return null;
-    return collections.find((c) => c.id === selectedCollectionId)?.name;
+    return collections.find((c) => c.id === selectedCollectionId);
   }, [selectedCollectionId, collections]);
 
-  const activeJobName = useMemo(() => {
+  const activeJob = useMemo(() => {
     if (!selectedJobId) return null;
-    return jobs.find((j) => j.id === selectedJobId)?.title;
+    return jobs.find((j) => j.id === selectedJobId);
   }, [selectedJobId, jobs]);
+
+  // Is viewing a nested collection or job
+  const isViewingCollectionDetails = section === "collections" && Boolean(selectedCollectionId);
+  const isViewingJobDetails = section === "jobs" && Boolean(selectedJobId);
 
   return (
     <main className="app-shell">
@@ -220,7 +203,7 @@ export const App: React.FC = () => {
           <NavItem
             icon={<Grid2X2 size={18} />}
             label="Library"
-            count={designs.length}
+            count={section === "library" ? designs.length : undefined}
             active={section === "library"}
             collapsed={isSidebarCollapsed}
             onClick={() => {
@@ -235,7 +218,11 @@ export const App: React.FC = () => {
             count={collections.length}
             active={section === "collections"}
             collapsed={isSidebarCollapsed}
-            onClick={() => setSection("collections")}
+            onClick={() => {
+              setSection("collections");
+              setSelectedCollectionId(null);
+              setSelectedJobId(null);
+            }}
           />
           <NavItem
             icon={<Boxes size={18} />}
@@ -243,14 +230,22 @@ export const App: React.FC = () => {
             count={jobs.length}
             active={section === "jobs"}
             collapsed={isSidebarCollapsed}
-            onClick={() => setSection("jobs")}
+            onClick={() => {
+              setSection("jobs");
+              setSelectedCollectionId(null);
+              setSelectedJobId(null);
+            }}
           />
           <NavItem
             icon={<ImageIcon size={18} />}
             label="Artwork"
             active={section === "artwork"}
             collapsed={isSidebarCollapsed}
-            onClick={() => setSection("artwork")}
+            onClick={() => {
+              setSection("artwork");
+              setSelectedCollectionId(null);
+              setSelectedJobId(null);
+            }}
           />
           <NavItem
             icon={<Trash2 size={18} />}
@@ -258,7 +253,11 @@ export const App: React.FC = () => {
             count={recycledDesigns.length > 0 ? recycledDesigns.length : undefined}
             active={section === "recycle"}
             collapsed={isSidebarCollapsed}
-            onClick={() => setSection("recycle")}
+            onClick={() => {
+              setSection("recycle");
+              setSelectedCollectionId(null);
+              setSelectedJobId(null);
+            }}
           />
         </nav>
 
@@ -268,7 +267,11 @@ export const App: React.FC = () => {
             label="Settings"
             active={section === "settings"}
             collapsed={isSidebarCollapsed}
-            onClick={() => setSection("settings")}
+            onClick={() => {
+              setSection("settings");
+              setSelectedCollectionId(null);
+              setSelectedJobId(null);
+            }}
           />
           <div className="account-card">
             <div className="account-avatar">L</div>
@@ -285,45 +288,75 @@ export const App: React.FC = () => {
         {/* Top Header */}
         <header className="workspace-header">
           <div>
-            <span className="eyebrow">
-              {section === "library"
-                ? activeCollectionName
-                  ? `COLLECTION: ${activeCollectionName.toUpperCase()}`
-                  : activeJobName
-                  ? `JOB: ${activeJobName.toUpperCase()}`
-                  : "MANAGED CATALOG"
-                : section.toUpperCase()}
-            </span>
-            <h1>
-              {section === "library"
-                ? activeCollectionName || activeJobName || "Your Embroidery Designs"
-                : section === "collections"
-                ? "Design Collections"
-                : section === "jobs"
-                ? "Production Jobs"
-                : section === "artwork"
-                ? "Source Artwork Assets"
-                : section === "recycle"
-                ? "Recycle Area"
-                : "Settings & Configuration"}
-            </h1>
-            <p className="subtle">
-              {section === "library"
-                ? `${designs.length} designs indexed · Secure local storage`
-                : section === "collections"
-                ? "Organize embroidery designs into themed series and seasonal folders."
-                : section === "jobs"
-                ? "Production batch containers linking garments, hoop sizes, and customer artwork."
-                : section === "artwork"
-                ? "Manage customer mockups, sketches, and vector assets (PNG, JPG, SVG, PDF)."
-                : section === "recycle"
-                ? "Safely restore quarantined files or permanently purge deleted designs."
-                : "Configure vision-capable AI endpoints, Ink/Stitch handoff paths, and backup archives."}
-            </p>
+            {isViewingCollectionDetails ? (
+              <>
+                <div className="breadcrumb-nav">
+                  <button
+                    className="back-btn"
+                    onClick={() => setSelectedCollectionId(null)}
+                  >
+                    <ArrowLeft size={15} />
+                    <span>Back to Collections</span>
+                  </button>
+                </div>
+                <span className="eyebrow">COLLECTION</span>
+                <h1>{activeCollection?.name}</h1>
+                <p className="subtle">
+                  {designs.length} design(s) in this collection · {activeCollection?.description || "No description"}
+                </p>
+              </>
+            ) : isViewingJobDetails ? (
+              <>
+                <div className="breadcrumb-nav">
+                  <button
+                    className="back-btn"
+                    onClick={() => setSelectedJobId(null)}
+                  >
+                    <ArrowLeft size={15} />
+                    <span>Back to Jobs</span>
+                  </button>
+                </div>
+                <span className="eyebrow">JOB CONTAINER</span>
+                <h1>{activeJob?.title}</h1>
+                <p className="subtle">
+                  {designs.length} linked design(s) · Status: <b>{activeJob?.status?.toUpperCase()}</b>
+                </p>
+              </>
+            ) : (
+              <>
+                <span className="eyebrow">{section.toUpperCase()}</span>
+                <h1>
+                  {section === "library"
+                    ? "Your Embroidery Designs"
+                    : section === "collections"
+                    ? "Design Collections"
+                    : section === "jobs"
+                    ? "Production Jobs"
+                    : section === "artwork"
+                    ? "Source Artwork Assets"
+                    : section === "recycle"
+                    ? "Recycle Area"
+                    : "Settings & Configuration"}
+                </h1>
+                <p className="subtle">
+                  {section === "library"
+                    ? `${designs.length} designs indexed · Secure local storage`
+                    : section === "collections"
+                    ? "Organize embroidery designs into themed series and seasonal folders."
+                    : section === "jobs"
+                    ? "Production batch containers linking garments, hoop sizes, and customer artwork."
+                    : section === "artwork"
+                    ? "Manage customer mockups, sketches, and vector assets (PNG, JPG, SVG, PDF)."
+                    : section === "recycle"
+                    ? "Quarantined deleted designs. Restore anytime or permanently purge from disk."
+                    : "Configure vision-capable AI endpoints, Ink/Stitch handoff paths, and backup archives."}
+                </p>
+              </>
+            )}
           </div>
 
           <div className="header-actions">
-            {section === "library" && (
+            {(section === "library" || isViewingCollectionDetails || isViewingJobDetails) && (
               <button
                 className="secondary"
                 onClick={() => {
@@ -352,21 +385,19 @@ export const App: React.FC = () => {
         </header>
 
         {/* Section View Routing */}
-        {section === "collections" ? (
+        {section === "collections" && !selectedCollectionId ? (
           <CollectionsView
             collections={collections}
             onSelectCollection={(col) => {
               setSelectedCollectionId(col.id);
-              setSection("library");
             }}
             onRefresh={reloadData}
           />
-        ) : section === "jobs" ? (
+        ) : section === "jobs" && !selectedJobId ? (
           <JobsView
             jobs={jobs}
             onSelectJob={(j) => {
               setSelectedJobId(j.id);
-              setSection("library");
             }}
             onRefresh={reloadData}
           />
@@ -381,7 +412,7 @@ export const App: React.FC = () => {
         ) : section === "settings" ? (
           <SettingsView />
         ) : (
-          /* Main Library Section */
+          /* Main Library / Collection Details / Job Details Grid View */
           <>
             {/* Filter and Search Bar */}
             <div className="toolbar">
@@ -389,23 +420,10 @@ export const App: React.FC = () => {
                 <Search size={18} className="search-icon" />
                 <input
                   type="text"
-                  placeholder={
-                    isAiSearchActive
-                      ? "Natural search (e.g., 'red florals for towels', 'PES under 5000 sts')…"
-                      : "Search by title, filename, tags, or AI category…"
-                  }
+                  placeholder="Search by title, filename, tags, or AI category…"
                   value={query}
-                  onChange={(e) => void handleSearchChange(e.target.value)}
+                  onChange={(e) => setQuery(e.target.value)}
                 />
-                <button
-                  type="button"
-                  className={`ai-search-toggle-btn ${isAiSearchActive ? "active" : ""}`}
-                  onClick={() => setIsAiSearchActive(!isAiSearchActive)}
-                  title="Toggle Natural Language AI Search"
-                >
-                  <Sparkles size={13} />
-                  <span>AI</span>
-                </button>
                 {query && (
                   <button
                     className="icon-button-sm"
@@ -494,25 +512,6 @@ export const App: React.FC = () => {
               ))}
             </div>
 
-            {/* Active Collection or Job Banner */}
-            {(activeCollectionName || activeJobName) && (
-              <div className="active-scope-banner">
-                <span>
-                  Showing designs scoped to:{" "}
-                  <b>{activeCollectionName || activeJobName}</b>
-                </span>
-                <button
-                  className="text-button text-xs"
-                  onClick={() => {
-                    setSelectedCollectionId(null);
-                    setSelectedJobId(null);
-                  }}
-                >
-                  Show all designs
-                </button>
-              </div>
-            )}
-
             {/* Design Catalog Content */}
             {designs.length === 0 ? (
               <div className="empty-box">
@@ -521,6 +520,10 @@ export const App: React.FC = () => {
                 <p>
                   {hasActiveFilters
                     ? "Try adjusting your search query, format, or tag filters."
+                    : isViewingCollectionDetails
+                    ? "This collection currently has no designs assigned. Select a design in the Library and assign it to this collection."
+                    : isViewingJobDetails
+                    ? "This job currently has no designs assigned. Select a design in the Library and assign it to this job."
                     : "Import DST, PES, JEF, VP3, EXP, HUS, XXX, SEW, PCS, PEC files to get started."}
                 </p>
                 {hasActiveFilters ? (
@@ -704,7 +707,6 @@ export const App: React.FC = () => {
           }}
         />
       )}
-
     </main>
   );
 };

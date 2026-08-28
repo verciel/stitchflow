@@ -57,7 +57,7 @@ export const JobsView: React.FC<JobsViewProps> = ({
 
   return (
     <div className="jobs-view-container">
-      <div className="flex justify-between items-center mb-4 flex-wrap gap-3">
+      <div className="mb-4">
         <div className="status-filter-tabs">
           {["all", "draft", "active", "completed", "archived"].map((st) => (
             <button
@@ -69,10 +69,8 @@ export const JobsView: React.FC<JobsViewProps> = ({
             </button>
           ))}
         </div>
-        <button className="primary" onClick={() => setShowModal(true)}>
-          <Plus size={16} /> New Job Container
-        </button>
       </div>
+
 
       <div className="jobs-list-grid">
         {filteredJobs.map((j) => (
@@ -102,13 +100,15 @@ export const JobsView: React.FC<JobsViewProps> = ({
           </article>
         ))}
 
-        {filteredJobs.length === 0 && (
-          <div className="empty-box">
-            <Boxes size={32} />
-            <p>No jobs found under this status filter.</p>
-          </div>
-        )}
+        <div
+          className="create-collection-card"
+          onClick={() => setShowModal(true)}
+        >
+          <Plus size={28} />
+          <span>Create New Job Container</span>
+        </div>
       </div>
+
 
       {showModal && (
         <div className="modal-backdrop" onClick={() => setShowModal(false)}>

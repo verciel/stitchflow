@@ -2,16 +2,13 @@ import React, { useEffect, useState } from "react";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import {
   AlertCircle,
-  Bot,
   Check,
-  CheckCircle2,
   Copy,
   ExternalLink,
   FileDown,
   FolderOpen,
   History,
   Image as ImageIcon,
-  Layers,
   Plus,
   RefreshCw,
   Sparkles,
@@ -19,7 +16,6 @@ import {
   Trash2,
   Undo2,
   X,
-  Zap,
 } from "lucide-react";
 import {
   addDesignToCollection,
@@ -28,8 +24,6 @@ import {
   exportDesign,
   formatError,
   getDesignDetails,
-  getInkstitchConfig,
-  getWorkflowAdvice,
   linkArtworkToDesign,
   listArtwork,
   listCollections,
@@ -71,15 +65,6 @@ const SUPPORTED_EXPORTS = [
   "PEC",
 ];
 
-const FABRIC_PRESETS = [
-  { id: "cotton", label: "100% Woven Cotton / Denim" },
-  { id: "polo", label: "Pique Knit Polo Shirt" },
-  { id: "stretch", label: "Stretchy Performance Lycra / Spandex" },
-  { id: "towel", label: "Terry Cloth Towel / Velour (Pile)" },
-  { id: "cap", label: "Structured Twill Cap / Hat" },
-  { id: "fleece", label: "Heavy Fleece Hoodie / Jacket" },
-];
-
 export const DesignDetailsDrawer: React.FC<DesignDetailsDrawerProps> = ({
   designId,
   onClose,
@@ -95,9 +80,6 @@ export const DesignDetailsDrawer: React.FC<DesignDetailsDrawerProps> = ({
   const [exportFormat, setExportFormat] = useState("DST");
   const [isExporting, setIsExporting] = useState(false);
   const [exportNotice, setExportNotice] = useState<string | null>(null);
-  const [advice, setAdvice] = useState<string | null>(null);
-  const [selectedFabric, setSelectedFabric] = useState("cotton");
-  const [loadingAdvice, setLoadingAdvice] = useState(false);
 
   // Pickers state
   const [availableCollections, setAvailableCollections] = useState<Collection[]>([]);
@@ -105,11 +87,15 @@ export const DesignDetailsDrawer: React.FC<DesignDetailsDrawerProps> = ({
   const [availableArtwork, setAvailableArtwork] = useState<ArtworkAsset[]>([]);
   const [showArtworkPicker, setShowArtworkPicker] = useState(false);
 
-  const loadData = async () => {
+  const loadData = async (targetId: string) => {
     try {
       setLoading(true);
+      setExportNotice(null);
+      setNewTagInput("");
+      setShowArtworkPicker(false);
+
       const [d, cols, jobs, arts] = await Promise.all([
-        getDesignDetails(designId),
+        getDesignDetails(targetId),
         listCollections(),
         listJobs(),
         listArtwork(),
@@ -126,7 +112,8 @@ export const DesignDetailsDrawer: React.FC<DesignDetailsDrawerProps> = ({
   };
 
   useEffect(() => {
-    void loadData();
+    setDetails(null);
+    void loadData(designId);
   }, [designId]);
 
   if (!details && loading) {
@@ -156,7 +143,7 @@ export const DesignDetailsDrawer: React.FC<DesignDetailsDrawerProps> = ({
     try {
       await addTagToDesign(d.id, tag);
       setNewTagInput("");
-      await loadData();
+      await loadData(d.id);
       onRefreshCatalog();
     } catch (err) {
       console.error(err);
@@ -166,7 +153,7 @@ export const DesignDetailsDrawer: React.FC<DesignDetailsDrawerProps> = ({
   const handleRemoveTag = async (tag: string) => {
     try {
       await removeTagFromDesign(d.id, tag);
-      await loadData();
+      await loadData(d.id);
       onRefreshCatalog();
     } catch (err) {
       console.error(err);
@@ -181,7 +168,7 @@ export const DesignDetailsDrawer: React.FC<DesignDetailsDrawerProps> = ({
       if (collectionId) {
         await addDesignToCollection(collectionId, d.id);
       }
-      await loadData();
+      await loadData(d.id);
       onRefreshCatalog();
     } catch (err) {
       console.error(err);
@@ -196,7 +183,7 @@ export const DesignDetailsDrawer: React.FC<DesignDetailsDrawerProps> = ({
       if (jobId) {
         await addDesignToJob(jobId, d.id);
       }
-      await loadData();
+      await loadData(d.id);
       onRefreshCatalog();
     } catch (err) {
       console.error(err);
@@ -207,7 +194,7 @@ export const DesignDetailsDrawer: React.FC<DesignDetailsDrawerProps> = ({
     try {
       await linkArtworkToDesign(d.id, assetId);
       setShowArtworkPicker(false);
-      await loadData();
+      await loadData(d.id);
     } catch (err) {
       console.error(err);
     }
@@ -216,7 +203,7 @@ export const DesignDetailsDrawer: React.FC<DesignDetailsDrawerProps> = ({
   const handleUnlinkArtwork = async (assetId: string) => {
     try {
       await unlinkArtworkFromDesign(d.id, assetId);
-      await loadData();
+      await loadData(d.id);
     } catch (err) {
       console.error(err);
     }
@@ -243,18 +230,6 @@ export const DesignDetailsDrawer: React.FC<DesignDetailsDrawerProps> = ({
       setExportNotice(formatError(err, "Export failed"));
     } finally {
       setIsExporting(false);
-    }
-  };
-
-  const handleGetAdvice = async () => {
-    try {
-      setLoadingAdvice(true);
-      const adv = await getWorkflowAdvice(d.id);
-      setAdvice(adv);
-    } catch (err) {
-      setAdvice(formatError(err, "Advice could not be generated"));
-    } finally {
-      setLoadingAdvice(false);
     }
   };
 
@@ -330,18 +305,10 @@ export const DesignDetailsDrawer: React.FC<DesignDetailsDrawerProps> = ({
           <button
             className="secondary flex-1"
             onClick={() => onTriggerAi(d)}
-            title="Analyze preview with OpenAI-compatible Vision API"
+            title="Analyze preview with Vision AI"
           >
             <Sparkles size={16} className="text-accent" />
-            <span>Ask AI</span>
-          </button>
-          <button
-            className="secondary flex-1"
-            onClick={handleGetAdvice}
-            title="Get garment and stabilizer recommendations"
-          >
-            <Bot size={16} />
-            <span>AI Advice</span>
+            <span>Analyze with AI</span>
           </button>
           <button
             className="secondary icon-btn"
@@ -358,55 +325,6 @@ export const DesignDetailsDrawer: React.FC<DesignDetailsDrawerProps> = ({
             <ExternalLink size={16} />
           </button>
         </div>
-
-        {/* AI Production & Workflow Advisor Section */}
-        <section className="drawer-section">
-          <div className="section-head-row">
-            <h4 className="section-title text-accent">
-              <Bot size={15} /> AI PRODUCTION ADVISOR
-            </h4>
-          </div>
-          <div className="flex gap-2 mb-2">
-            <select
-              value={selectedFabric}
-              onChange={(e) => setSelectedFabric(e.target.value)}
-              className="select-input flex-1 text-xs"
-            >
-              {FABRIC_PRESETS.map((f) => (
-                <option key={f.id} value={f.id}>
-                  {f.label}
-                </option>
-              ))}
-            </select>
-            <button
-              className="secondary compact-btn"
-              onClick={handleGetAdvice}
-              disabled={loadingAdvice}
-            >
-              {loadingAdvice ? <RefreshCw size={14} className="spin" /> : <Zap size={14} />}
-              <span>Recipe</span>
-            </button>
-          </div>
-
-          {advice && (
-            <div className="advice-card mt-2">
-              <div className="advice-header">
-                <b>Production Assessment</b>
-                <button
-                  className="icon-button-sm"
-                  onClick={() => setAdvice(null)}
-                >
-                  <X size={14} />
-                </button>
-              </div>
-              <div className="advice-content markdown-body">
-                {advice.split("\n").map((line, idx) => (
-                  <p key={idx}>{line}</p>
-                ))}
-              </div>
-            </div>
-          )}
-        </section>
 
         {/* Technical Facts Grid */}
         <section className="drawer-section">
