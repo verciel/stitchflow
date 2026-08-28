@@ -17,7 +17,6 @@ pub enum AdapterError {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct ThreadInfo {
     pub index: usize,
     pub hex: String,
@@ -26,12 +25,13 @@ pub struct ThreadInfo {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct EmbroideryMetadata {
     pub format: String,
     pub stitches: usize,
     pub colors: usize,
+    #[serde(alias = "widthMm", alias = "width_mm")]
     pub width_mm: f64,
+    #[serde(alias = "heightMm", alias = "height_mm")]
     pub height_mm: f64,
     pub bounds: (f64, f64, f64, f64),
     pub jumps: usize,
@@ -39,6 +39,7 @@ pub struct EmbroideryMetadata {
     pub threads: Vec<ThreadInfo>,
     pub filename: String,
 }
+
 
 pub trait EmbroideryFormatAdapter: Send + Sync {
     fn inspect(&self, path: &Path) -> Result<EmbroideryMetadata, AdapterError>;

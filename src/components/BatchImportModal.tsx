@@ -8,10 +8,13 @@ import {
   FolderOpen,
   HelpCircle,
   Loader2,
+  Plus,
+  RotateCcw,
+  Trash2,
   Upload,
   X,
 } from "lucide-react";
-import { importFiles } from "../lib";
+import { formatError, importFiles } from "../lib";
 import type { ImportResult } from "../types";
 
 interface BatchImportModalProps {
@@ -19,6 +22,24 @@ interface BatchImportModalProps {
   onClose: () => void;
   onImportComplete: () => void;
 }
+
+const SUPPORTED_EXTENSIONS = [
+  "dst",
+  "pes",
+  "jef",
+  "vp3",
+  "exp",
+  "hus",
+  "xxx",
+  "sew",
+  "pcs",
+  "pec",
+  "png",
+  "jpg",
+  "jpeg",
+  "svg",
+  "pdf",
+];
 
 export const BatchImportModal: React.FC<BatchImportModalProps> = ({
   isOpen,
@@ -35,42 +56,60 @@ export const BatchImportModal: React.FC<BatchImportModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handlePickFiles = async () => {
+  const handlePickFiles = async (append = false) => {
     try {
       const selection = await open({
         multiple: true,
+        title: "Select Embroidery Designs and Artwork",
         filters: [
           {
-            name: "Supported files (Embroidery & Artwork)",
-            extensions: [
-              "dst",
-              "pes",
-              "jef",
-              "vp3",
-              "exp",
-              "hus",
-              "xxx",
-              "sew",
-              "pcs",
-              "pec",
-              "png",
-              "jpg",
-              "jpeg",
-              "svg",
-              "pdf",
-            ],
+            name: "Supported Embroidery & Artwork",
+            extensions: SUPPORTED_EXTENSIONS,
           },
         ],
       });
 
       if (!selection) return;
       const paths = Array.isArray(selection) ? selection : [selection];
-      setSelectedPaths(paths);
+      setSelectedPaths((prev) => {
+        if (append) {
+          const set = new Set([...prev, ...paths]);
+          return Array.from(set);
+        }
+        return paths;
+      });
       setResults(null);
       setErrorMsg(null);
     } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : "Failed to open file picker");
+      setErrorMsg(formatError(err, "Failed to open file picker"));
     }
+  };
+
+  const handlePickFolder = async (append = false) => {
+    try {
+      const folder = await open({
+        directory: true,
+        multiple: false,
+        title: "Select Folder Containing Embroidery Designs",
+      });
+
+      if (!folder || typeof folder !== "string") return;
+      setSelectedPaths((prev) => {
+        if (append) {
+          const set = new Set([...prev, folder]);
+          return Array.from(set);
+        }
+        return [folder];
+      });
+      setResults(null);
+      setErrorMsg(null);
+    } catch (err) {
+      setErrorMsg(formatError(err, "Failed to select folder"));
+    }
+  };
+
+  const handleRemoveFile = (indexToRemove: number) => {
+    setSelectedPaths((prev) => prev.filter((_, i) => i !== indexToRemove));
   };
 
   const handleRunImport = async () => {
@@ -83,7 +122,7 @@ export const BatchImportModal: React.FC<BatchImportModalProps> = ({
       setResults(importResults);
       onImportComplete();
     } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : "Import failed");
+      setErrorMsg(formatError(err, "Import failed"));
     } finally {
       setIsProcessing(false);
     }
@@ -98,8 +137,12 @@ export const BatchImportModal: React.FC<BatchImportModalProps> = ({
   const importedCount = results?.filter((r) => r.status === "imported").length ?? 0;
   const duplicateCount = results?.filter((r) => r.status === "duplicate").length ?? 0;
   const errorCount =
-    results?.filter((r) => r.status === "unsupported" || r.status === "failed" || r.status === "invalid")
-      .length ?? 0;
+    results?.filter(
+      (r) =>
+        r.status === "unsupported" ||
+        r.status === "failed" ||
+        r.status === "invalid"
+    ).length ?? 0;
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -121,7 +164,7 @@ export const BatchImportModal: React.FC<BatchImportModalProps> = ({
 
         <div className="modal-body">
           {errorMsg && (
-            <div className="alert-banner alert-error">
+            <div className="alert-banner alert-error mb-3">
               <AlertCircle size={18} />
               <span>{errorMsg}</span>
             </div>
@@ -130,39 +173,79 @@ export const BatchImportModal: React.FC<BatchImportModalProps> = ({
           {!results && (
             <>
               {selectedPaths.length === 0 ? (
-                <div className="dropzone-area" onClick={handlePickFiles}>
+                <div className="dropzone-area">
                   <div className="dropzone-icon">
                     <FolderOpen size={36} />
                   </div>
-                  <h3>Select files or folder for batch import</h3>
-                  <p>Original files remain untouched. Stitchflow creates managed copies with checksum validation.</p>
-                  <button className="primary mt-3" type="button" onClick={handlePickFiles}>
-                    Browse Files…
-                  </button>
+                  <h3>Select files or an entire folder</h3>
+                  <p>
+                    Original files remain untouched. Stitchflow creates managed copies with SHA-256 validation.
+                  </p>
+                  <div className="dropzone-actions mt-3">
+                    <button
+                      className="primary"
+                      type="button"
+                      onClick={() => handlePickFiles(false)}
+                    >
+                      <Plus size={16} /> Select Files…
+                    </button>
+                    <button
+                      className="secondary"
+                      type="button"
+                      onClick={() => handlePickFolder(false)}
+                    >
+                      <FolderOpen size={16} /> Select Folder…
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <div className="file-selection-preview">
                   <div className="selection-header">
                     <span>
-                      <b>{selectedPaths.length}</b> file(s) selected
+                      <b>{selectedPaths.length}</b> item(s) staged for import
                     </span>
-                    <button className="text-button text-sm" onClick={handleReset}>
-                      Change Selection
-                    </button>
+                    <div className="selection-action-btns">
+                      <button
+                        className="secondary compact-btn"
+                        type="button"
+                        onClick={() => handlePickFiles(true)}
+                        title="Add more files to this batch"
+                      >
+                        <Plus size={14} /> Add Files…
+                      </button>
+                      <button
+                        className="secondary compact-btn"
+                        type="button"
+                        onClick={() => handlePickFolder(true)}
+                        title="Add a folder to this batch"
+                      >
+                        <FolderOpen size={14} /> Add Folder…
+                      </button>
+                      <button
+                        className="text-button text-sm text-red"
+                        onClick={handleReset}
+                      >
+                        Clear All
+                      </button>
+                    </div>
                   </div>
+
                   <ul className="file-path-list">
-                    {selectedPaths.slice(0, 8).map((p, idx) => (
+                    {selectedPaths.map((p, idx) => (
                       <li key={idx} className="file-path-item">
                         <FileCode2 size={16} />
                         <span className="file-name">{p.split(/[\\/]/).pop()}</span>
                         <span className="file-dir">{p}</span>
+                        <button
+                          type="button"
+                          className="item-remove-btn"
+                          onClick={() => handleRemoveFile(idx)}
+                          title="Remove from batch"
+                        >
+                          <X size={14} />
+                        </button>
                       </li>
                     ))}
-                    {selectedPaths.length > 8 && (
-                      <li className="file-path-more">
-                        + {selectedPaths.length - 8} more files
-                      </li>
-                    )}
                   </ul>
                 </div>
               )}
@@ -172,7 +255,9 @@ export const BatchImportModal: React.FC<BatchImportModalProps> = ({
                   EXACT DUPLICATE HANDLING (SHA-256 MATCH)
                 </label>
                 <div className="policy-options-grid">
-                  <label className={`policy-card ${duplicatePolicy === "skip" ? "active" : ""}`}>
+                  <label
+                    className={`policy-card ${duplicatePolicy === "skip" ? "active" : ""}`}
+                  >
                     <input
                       type="radio"
                       name="dupPolicy"
@@ -186,7 +271,9 @@ export const BatchImportModal: React.FC<BatchImportModalProps> = ({
                     </div>
                   </label>
 
-                  <label className={`policy-card ${duplicatePolicy === "replace_revision" ? "active" : ""}`}>
+                  <label
+                    className={`policy-card ${duplicatePolicy === "replace_revision" ? "active" : ""}`}
+                  >
                     <input
                       type="radio"
                       name="dupPolicy"
@@ -200,7 +287,9 @@ export const BatchImportModal: React.FC<BatchImportModalProps> = ({
                     </div>
                   </label>
 
-                  <label className={`policy-card ${duplicatePolicy === "keep_both" ? "active" : ""}`}>
+                  <label
+                    className={`policy-card ${duplicatePolicy === "keep_both" ? "active" : ""}`}
+                  >
                     <input
                       type="radio"
                       name="dupPolicy"
@@ -220,7 +309,7 @@ export const BatchImportModal: React.FC<BatchImportModalProps> = ({
 
           {isProcessing && (
             <div className="import-progress-box">
-              <Loader2 size={32} className="spin text-accent" />
+              <Loader2 size={36} className="spin text-accent" />
               <h3>Extracting metadata and rendering stitch previews…</h3>
               <p>Analyzing stitch paths, thread sequences, and hoop coordinates deterministically.</p>
             </div>
@@ -268,7 +357,10 @@ export const BatchImportModal: React.FC<BatchImportModalProps> = ({
                           </span>
                         </td>
                         <td className="text-sm text-subtle">
-                          {res.message || (res.design ? `${res.design.format} · ${res.design.stitches?.toLocaleString()} sts` : "—")}
+                          {res.message ||
+                            (res.design
+                              ? `${res.design.format} · ${res.design.stitches?.toLocaleString() ?? 0} sts · ${res.design.widthMm ?? 0}×${res.design.heightMm ?? 0} mm`
+                              : "—")}
                         </td>
                       </tr>
                     ))}
@@ -281,12 +373,21 @@ export const BatchImportModal: React.FC<BatchImportModalProps> = ({
 
         <div className="modal-footer">
           {results ? (
-            <button className="primary" onClick={onClose}>
-              Done
-            </button>
+            <div className="flex gap-2 justify-end full-width">
+              <button className="secondary" onClick={handleReset}>
+                <Plus size={16} /> Import More Files…
+              </button>
+              <button className="primary" onClick={onClose}>
+                Done
+              </button>
+            </div>
           ) : (
             <>
-              <button className="text-button" onClick={onClose} disabled={isProcessing}>
+              <button
+                className="text-button"
+                onClick={onClose}
+                disabled={isProcessing}
+              >
                 Cancel
               </button>
               <button
@@ -294,7 +395,9 @@ export const BatchImportModal: React.FC<BatchImportModalProps> = ({
                 onClick={handleRunImport}
                 disabled={selectedPaths.length === 0 || isProcessing}
               >
-                {isProcessing ? "Importing…" : `Import ${selectedPaths.length || ""} Files`}
+                {isProcessing
+                  ? "Importing…"
+                  : `Import ${selectedPaths.length || ""} Item(s)`}
               </button>
             </>
           )}

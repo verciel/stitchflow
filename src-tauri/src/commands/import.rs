@@ -27,12 +27,42 @@ fn clean_title(stem: &str) -> String {
         .join(" ")
 }
 
+fn collect_paths_recursive(raw_path: &str, out: &mut Vec<String>) {
+    let p = PathBuf::from(raw_path);
+    if p.is_file() {
+        out.push(raw_path.to_string());
+    } else if p.is_dir() {
+        if let Ok(entries) = fs::read_dir(&p) {
+            for entry in entries.flatten() {
+                let sub_p = entry.path();
+                if sub_p.is_file() {
+                    if let Some(ext) = sub_p.extension().and_then(|x| x.to_str()) {
+                        let ext_lower = ext.to_lowercase();
+                        if EMBROIDERY_FORMATS.contains(&ext_lower.as_str())
+                            || ARTWORK_FORMATS.contains(&ext_lower.as_str())
+                        {
+                            out.push(sub_p.to_string_lossy().to_string());
+                        }
+                    }
+                } else if sub_p.is_dir() {
+                    collect_paths_recursive(&sub_p.to_string_lossy(), out);
+                }
+            }
+        }
+    }
+}
+
 #[tauri::command]
 pub fn import_files(
     state: State<AppState>,
     paths: Vec<String>,
     duplicate_policy: String,
 ) -> Result<Vec<ImportResult>, String> {
+    let mut resolved_paths = Vec::new();
+    for p in paths {
+        collect_paths_recursive(&p, &mut resolved_paths);
+    }
+
     let mut results = Vec::new();
     let db = state.db.lock().map_err(|_| "Database is busy")?;
 
@@ -40,13 +70,14 @@ pub fn import_files(
     let mut duplicate_count = 0;
     let mut failed_count = 0;
 
-    for raw_path in paths {
+    for raw_path in resolved_paths {
         let src = PathBuf::from(&raw_path);
         let ext = src
             .extension()
             .and_then(|x| x.to_str())
             .unwrap_or("")
             .to_lowercase();
+
 
         let is_embroidery = EMBROIDERY_FORMATS.contains(&ext.as_str());
         let is_artwork = ARTWORK_FORMATS.contains(&ext.as_str());
@@ -437,10 +468,17 @@ pub fn import_files(
                 "imported".into()
             },
             design: Some(created_design),
-            message: None,
+            message: Some(format!(
+                "{} · {} sts · {:.1}×{:.1} mm",
+                ext.to_uppercase(),
+                st.unwrap_or(0),
+                w.unwrap_or(0.0),
+                h.unwrap_or(0.0)
+            )),
         });
         imported_count += 1;
     }
+
 
     // Record audit entry in imports table
     let _ = db.execute(
