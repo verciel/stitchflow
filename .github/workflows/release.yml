@@ -21,15 +21,19 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install Python dependencies
+      - name: Install Python dependencies & PyInstaller
         run: |
           python -m pip install --upgrade pip
-          pip install pyembroidery pillow
+          pip install pyembroidery pillow pyinstaller
+
+      - name: Compile Standalone Python Engine
+        run: |
+          pyinstaller --onefile --distpath src-tauri/embroidery-engine/dist --workpath src-tauri/embroidery-engine/build --specpath src-tauri/embroidery-engine --name engine src-tauri/embroidery-engine/engine.py
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
 
       - name: Install Rust toolchain

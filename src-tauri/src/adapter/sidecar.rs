@@ -46,33 +46,36 @@ impl PythonSidecarAdapter {
         }
 
         // Priority 2: Check or self-extract embedded engine into %LOCALAPPDATA%\Stitchflow\bin\engine.exe
-        let appdata_bin = dirs::data_local_dir()
-            .unwrap_or_else(std::env::temp_dir)
-            .join("Stitchflow")
-            .join("bin")
-            .join("engine.exe");
+        if EMBEDDED_ENGINE.len() > 100_000 {
+            let appdata_bin = dirs::data_local_dir()
+                .unwrap_or_else(std::env::temp_dir)
+                .join("Stitchflow")
+                .join("bin")
+                .join("engine.exe");
 
-        let should_extract = if appdata_bin.exists() {
-            match std::fs::metadata(&appdata_bin) {
-                Ok(meta) => meta.len() != EMBEDDED_ENGINE.len() as u64,
-                Err(_) => true,
-            }
-        } else {
-            true
-        };
+            let should_extract = if appdata_bin.exists() {
+                match std::fs::metadata(&appdata_bin) {
+                    Ok(meta) => meta.len() != EMBEDDED_ENGINE.len() as u64,
+                    Err(_) => true,
+                }
+            } else {
+                true
+            };
 
-        if should_extract {
-            if let Some(parent) = appdata_bin.parent() {
-                let _ = std::fs::create_dir_all(parent);
-            }
-            if std::fs::write(&appdata_bin, EMBEDDED_ENGINE).is_ok() {
+            if should_extract {
+                if let Some(parent) = appdata_bin.parent() {
+                    let _ = std::fs::create_dir_all(parent);
+                }
+                if std::fs::write(&appdata_bin, EMBEDDED_ENGINE).is_ok() {
+                    return Ok((appdata_bin, None));
+                }
+            } else {
                 return Ok((appdata_bin, None));
             }
-        } else {
-            return Ok((appdata_bin, None));
         }
 
         // Priority 3: Fallback to engine.py script with Python interpreter
+
         let script_candidates = [
             cur_dir.join("src-tauri/embroidery-engine/engine.py"),
             cur_dir.join("embroidery-engine/engine.py"),
