@@ -16,15 +16,225 @@ import type {
 
 export const hasTauri = () => typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
+const MOCK_DESIGNS: Design[] = [
+  {
+    id: "sample-rose",
+    title: "English Garden Rose",
+    filename: "garden_rose.pes",
+    format: "PES",
+    widthMm: 82.0,
+    heightMm: 76.0,
+    stitches: 12480,
+    colors: 5,
+    sizeBytes: 18400,
+    tags: ["floral", "rose", "botanical", "satin-stitch"],
+    importedAt: "2026-08-28T12:00:00Z",
+    duplicate: false,
+    status: "active",
+    aiCategory: "Floral & Botanical",
+    aiSubject: "Garden Rose in Bloom",
+    aiStyle: "Traditional Satin Stitch",
+    aiDescription: "A multi-layered English garden rose featuring dense satin stitch petals and contoured botanical foliage.",
+    dominantColors: ["#D32F2F", "#388E3C", "#B71C1C", "#1B5E20", "#FBC02D"],
+    threads: [
+      { index: 1, hex: "#D32F2F", brand: "Madeira Polyneon", description: "Classic Red" },
+      { index: 2, hex: "#388E3C", brand: "Madeira Polyneon", description: "Leaf Green" },
+      { index: 3, hex: "#B71C1C", brand: "Madeira Polyneon", description: "Deep Rose" },
+      { index: 4, hex: "#1B5E20", brand: "Madeira Polyneon", description: "Forest Green" },
+      { index: 5, hex: "#FBC02D", brand: "Madeira Polyneon", description: "Pollen Gold" },
+    ],
+  },
+  {
+    id: "sample-butterfly",
+    title: "Meadow Monarch Butterfly",
+    filename: "meadow_butterfly.dst",
+    format: "DST",
+    widthMm: 95.0,
+    heightMm: 65.0,
+    stitches: 8920,
+    colors: 4,
+    sizeBytes: 14200,
+    tags: ["wildlife", "butterfly", "insects", "summer"],
+    importedAt: "2026-08-28T12:00:00Z",
+    duplicate: false,
+    status: "active",
+    aiCategory: "Wildlife & Nature",
+    aiSubject: "Monarch Butterfly",
+    aiStyle: "Tatami Fill & Satin Edge",
+    aiDescription: "Intricate wing pattern with gradient tatami fill stitching and fine satin border contours.",
+    dominantColors: ["#0288D1", "#7B1FA2", "#E91E63", "#FFD600"],
+    threads: [
+      { index: 1, hex: "#0288D1", brand: "Madeira Classic", description: "Sky Blue" },
+      { index: 2, hex: "#7B1FA2", brand: "Madeira Classic", description: "Royal Purple" },
+      { index: 3, hex: "#E91E63", brand: "Madeira Classic", description: "Magenta" },
+      { index: 4, hex: "#FFD600", brand: "Madeira Classic", description: "Canary Yellow" },
+    ],
+  },
+  {
+    id: "sample-star",
+    title: "Golden Celestial Starburst",
+    filename: "little_star.jef",
+    format: "JEF",
+    widthMm: 50.0,
+    heightMm: 50.0,
+    stitches: 4310,
+    colors: 2,
+    sizeBytes: 8100,
+    tags: ["star", "celestial", "gold", "geometric"],
+    importedAt: "2026-08-28T12:00:00Z",
+    duplicate: false,
+    status: "active",
+    aiCategory: "Geometric & Celestial",
+    aiSubject: "Starburst Emblem",
+    aiStyle: "Radiating Fill",
+    aiDescription: "A symmetrical 8-point celestial star with radiating underlay and lustrous metallic gold topstitching.",
+    dominantColors: ["#FBC02D", "#FF6F00"],
+    threads: [
+      { index: 1, hex: "#FBC02D", brand: "Robison-Anton", description: "Sun Gold" },
+      { index: 2, hex: "#FF6F00", brand: "Robison-Anton", description: "Amber Gold" },
+    ],
+  },
+  {
+    id: "sample-crest",
+    title: "Pacific Coast Crest",
+    filename: "pacific_crest.pes",
+    format: "PES",
+    widthMm: 110.0,
+    heightMm: 105.0,
+    stitches: 18400,
+    colors: 4,
+    sizeBytes: 24100,
+    tags: ["crest", "nautical", "varsity", "emblem"],
+    importedAt: "2026-08-28T12:00:00Z",
+    duplicate: false,
+    status: "active",
+    aiCategory: "Emblems & Badges",
+    aiSubject: "Nautical Academy Crest",
+    aiStyle: "Heavy Uniform Applique & Fill",
+    aiDescription: "Traditional heraldic crest with anchor and laurel leaf wreath, digitized for heavy twill jacket backs.",
+    dominantColors: ["#1A237E", "#00ACC1", "#FFB300", "#FFFFFF"],
+    threads: [
+      { index: 1, hex: "#1A237E", brand: "Madeira Polyneon", description: "Navy Blue" },
+      { index: 2, hex: "#00ACC1", brand: "Madeira Polyneon", description: "Cyan Teal" },
+      { index: 3, hex: "#FFB300", brand: "Madeira Polyneon", description: "Varsity Gold" },
+      { index: 4, hex: "#FFFFFF", brand: "Madeira Polyneon", description: "Pure White" },
+    ],
+  },
+  {
+    id: "sample-mountain",
+    title: "Nordic Mountain Sunset",
+    filename: "nordic_peaks.exp",
+    format: "EXP",
+    widthMm: 100.0,
+    heightMm: 85.0,
+    stitches: 14200,
+    colors: 4,
+    sizeBytes: 19800,
+    tags: ["mountains", "outdoor", "landscape", "adventure"],
+    importedAt: "2026-08-28T12:00:00Z",
+    duplicate: false,
+    status: "active",
+    aiCategory: "Landscapes & Outdoors",
+    aiSubject: "Alpine Mountain Range",
+    aiStyle: "Cross-hatch & Stepped Fill",
+    aiDescription: "Geometric mountain peaks against a warm sunset horizon, optimized for knit beanies and outdoor gear.",
+    dominantColors: ["#FF7043", "#3949AB", "#FFFFFF", "#2E7D32"],
+    threads: [
+      { index: 1, hex: "#FF7043", brand: "Madeira Classic", description: "Sunset Coral" },
+      { index: 2, hex: "#3949AB", brand: "Madeira Classic", description: "Indigo Ridge" },
+      { index: 3, hex: "#FFFFFF", brand: "Madeira Classic", description: "Alpine Snow" },
+      { index: 4, hex: "#2E7D32", brand: "Madeira Classic", description: "Pine Needle" },
+    ],
+  },
+];
+
+const MOCK_COLLECTIONS: Collection[] = [
+  {
+    id: "col-botanical",
+    name: "Botanical & Floral",
+    description: "Nature and botanical floral embroidery motifs for spring collections.",
+    createdAt: "2026-08-28T12:00:00Z",
+    designCount: 2,
+  },
+  {
+    id: "col-emblems",
+    name: "Badges & Monograms",
+    description: "Varsity jackets, nautical crests, and academy uniform insignia.",
+    createdAt: "2026-08-28T12:00:00Z",
+    designCount: 1,
+  },
+  {
+    id: "col-outdoors",
+    name: "Outdoor & Adventure",
+    description: "Mountain ranges, celestial stars, and wildlife for outerwear.",
+    createdAt: "2026-08-28T12:00:00Z",
+    designCount: 2,
+  },
+];
+
+const MOCK_TAGS: Tag[] = [
+  { id: "tag-floral", name: "floral", count: 2 },
+  { id: "tag-rose", name: "rose", count: 1 },
+  { id: "tag-botanical", name: "botanical", count: 2 },
+  { id: "tag-wildlife", name: "wildlife", count: 1 },
+  { id: "tag-butterfly", name: "butterfly", count: 1 },
+  { id: "tag-star", name: "star", count: 1 },
+  { id: "tag-crest", name: "crest", count: 1 },
+  { id: "tag-mountains", name: "mountains", count: 1 },
+];
+
 // Designs
 export async function listDesigns(filters?: FilterOptions): Promise<Design[]> {
-  if (!hasTauri()) return [];
+  if (!hasTauri()) {
+    let list = [...MOCK_DESIGNS];
+    if (filters?.format && filters.format !== "all") {
+      list = list.filter((d) => d.format === filters.format);
+    }
+    if (filters?.tag) {
+      list = list.filter((d) => d.tags.includes(filters.tag!));
+    }
+    if (filters?.query) {
+      const q = filters.query.toLowerCase();
+      list = list.filter(
+        (d) =>
+          d.title.toLowerCase().includes(q) ||
+          d.filename.toLowerCase().includes(q) ||
+          d.tags.some((t) => t.toLowerCase().includes(q))
+      );
+    }
+    return list;
+  }
   return invoke("list_designs", { filters });
 }
 
 export async function getDesignDetails(id: string): Promise<DesignDetails> {
+  if (!hasTauri()) {
+    const design = MOCK_DESIGNS.find((d) => d.id === id) || MOCK_DESIGNS[0];
+    return {
+      design,
+      revisions: [
+        {
+          id: `rev-1-${design.id}`,
+          designId: design.id,
+          revisionNumber: 1,
+          filename: design.filename,
+          managedPath: `/managed/designs/${design.filename}`,
+          checksum: `sha256-e9a3b8c4d7f1025a7b6c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9`,
+          format: design.format,
+          sizeBytes: design.sizeBytes,
+          createdAt: design.importedAt,
+          note: "Initial import",
+        },
+      ],
+      linkedArtwork: [],
+      linkedJobs: [],
+      pendingSuggestions: [],
+    };
+  }
   return invoke("get_design_details", { id });
 }
+
+
 
 export async function updateDesignMetadata(
   id: string,
@@ -72,9 +282,10 @@ export async function importFiles(
 
 // Tags
 export async function listTags(): Promise<Tag[]> {
-  if (!hasTauri()) return [];
+  if (!hasTauri()) return MOCK_TAGS;
   return invoke("list_tags");
 }
+
 
 export async function addTagToDesign(designId: string, tagName: string): Promise<void> {
   return invoke("add_tag_to_design", { designId, tagName });
@@ -86,7 +297,7 @@ export async function removeTagFromDesign(designId: string, tagName: string): Pr
 
 // Collections
 export async function listCollections(): Promise<Collection[]> {
-  if (!hasTauri()) return [];
+  if (!hasTauri()) return MOCK_COLLECTIONS;
   return invoke("list_collections");
 }
 
@@ -125,9 +336,24 @@ export async function removeDesignFromCollection(
 
 // Jobs
 export async function listJobs(): Promise<Job[]> {
-  if (!hasTauri()) return [];
+  if (!hasTauri()) {
+    return [
+      {
+        id: "job-1",
+        title: "Summer Polo Crest Run #408",
+        notes: "Use 2.5oz cut-away backing and Madeira Polyneon thread.",
+        status: "active",
+        createdAt: "2026-08-28T12:00:00Z",
+        updatedAt: "2026-08-28T12:00:00Z",
+        designCount: 1,
+        artworkCount: 1,
+      },
+    ];
+  }
   return invoke("list_jobs");
 }
+
+
 
 export async function createJob(
   title: string,

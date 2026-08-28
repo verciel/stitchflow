@@ -65,7 +65,14 @@ const FORMAT_OPTIONS = [
 ];
 
 export const App: React.FC = () => {
-  const [section, setSection] = useState<Section>("library");
+  const searchParams = useMemo(() => {
+    if (typeof window === "undefined") return new URLSearchParams();
+    return new URLSearchParams(window.location.search);
+  }, []);
+
+  const [section, setSection] = useState<Section>(
+    (searchParams.get("section") as Section) || "library"
+  );
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   // Catalog State
@@ -86,7 +93,10 @@ export const App: React.FC = () => {
   // Selection & UI State
   const [selectedDesign, setSelectedDesign] = useState<Design | null>(null);
   const [isGridView, setIsGridView] = useState(true);
-  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(
+    searchParams.get("import") === "1"
+  );
+
   const [aiTargetDesign, setAiTargetDesign] = useState<Design | null>(null);
   const [aiConfig, setAiConfig] = useState<AiConfig>({
     endpoint: "https://api.openai.com/v1",
@@ -130,7 +140,11 @@ export const App: React.FC = () => {
       if (selectedDesign) {
         const fresh = activeList.find((d) => d.id === selectedDesign.id);
         if (fresh) setSelectedDesign(fresh);
+      } else if (searchParams.get("design")) {
+        const target = activeList.find((d) => d.id === searchParams.get("design"));
+        if (target) setSelectedDesign(target);
       }
+
     } catch (err) {
       console.error("Failed to load catalog data:", err);
     } finally {
