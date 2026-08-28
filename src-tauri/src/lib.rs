@@ -33,15 +33,28 @@ fn app_root() -> PathBuf {
 
 pub fn run() {
     let root = app_root();
-    let db = db::initialize(&root).expect("Unable to initialize Stitchflow database");
+    let _ = std::fs::create_dir_all(&root);
+
+    let db = match db::initialize(&root) {
+        Ok(d) => d,
+        Err(e) => {
+            let log_file = root.join("startup_error.log");
+            let _ = std::fs::write(&log_file, format!("Database initialization failed: {e}\n"));
+            eprintln!("Database error: {e}");
+            panic!("Unable to initialize Stitchflow database: {e}");
+        }
+    };
 
     let adapter: Arc<dyn EmbroideryFormatAdapter> = match PythonSidecarAdapter::new() {
         Ok(ad) => Arc::new(ad),
         Err(e) => {
+            let log_file = root.join("startup_error.log");
+            let _ = std::fs::write(&log_file, format!("Engine adapter initialization failed: {e}\n"));
             eprintln!("Warning: Failed to initialize PythonSidecarAdapter: {e}");
             panic!("Cannot start Stitchflow without embroidery engine sidecar: {e}");
         }
     };
+
 
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())

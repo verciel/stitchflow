@@ -81,7 +81,7 @@ python -m pip install --upgrade pip
 pip install -r src-tauri/embroidery-engine/requirements.txt
 
 # 4. Install Node.js frontend dependencies
-npm install
+npm.cmd install
 ```
 
 ---
@@ -90,7 +90,7 @@ npm install
 
 ```powershell
 # Launches Vite dev server and Tauri desktop window with live reload
-npm run tauri dev
+npm.cmd run tauri dev
 ```
 
 ---
@@ -99,8 +99,9 @@ npm run tauri dev
 
 ```powershell
 # Compiles optimized release binary with embedded assets
-npm run tauri build
+npm.cmd run tauri build
 ```
+
 The compiled output will be located at:
 `src-tauri/target/release/stitchflow.exe` or `%LOCALAPPDATA%\Stitchflow-cargo-target\release\stitchflow.exe`.
 

@@ -70,10 +70,11 @@ python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r src-tauri/embroidery-engine/requirements.txt
 
 # 3. Install frontend dependencies
-npm install
+npm.cmd install
 
 # 4. Launch desktop development app
-npm run tauri dev
+npm.cmd run tauri dev
+
 ```
 
 ---
@@ -134,10 +135,11 @@ Run the automated test suites:
 cd src-tauri && cargo test --lib
 
 # Frontend Unit Tests (3/3 passing)
-npm test
+npm.cmd test
 
 # Production Build Check
-npm run build
+npm.cmd run build
+
 ```
 
 ---
