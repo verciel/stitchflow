@@ -142,13 +142,18 @@ npm run build
 
 ---
 
-## Privacy & Local-First Boundaries
+## Documentation & Guides
 
-- **100% Offline by Default**: All indexing, cataloging, metadata extraction, preview rendering, and format conversions execute locally on your machine.
-- **Opt-In AI**: AI features are disabled by default. If enabled, only explicitly selected previews and metadata are sent over TLS to your configured endpoint. No embroidery files or data are uploaded without user action.
+Comprehensive documentation is available in the [`docs/`](docs/) directory:
+
+- 📊 **[Database Setup & Schema Guide](docs/DATABASE_SETUP.md)**: SQLite architecture, 10 relational tables, FTS5 full-text triggers, schema migrations, and backup verification.
+- ⚙️ **[Installation & Configuration Guide](docs/INSTALLATION_GUIDE.md)**: Pre-built binaries, running from source, Python environment setup, Ink/Stitch configuration, and AI vision endpoints.
+- 🛠️ **[Technical Architecture Documentation](docs/TECHNICAL_DOCUMENTATION.md)**: Multi-process IPC protocol, trait-based format adapters, vision extraction pipeline, and threading models.
+- 📖 **[User Manual & Operations Guide](docs/USER_GUIDE.md)**: Step-by-step instructions for importing, searching, converting, organizing collections, production jobs, and AI tagging.
 
 ---
 
 ## License
 
 MIT License. Designed and developed with Stitchflow.
+
