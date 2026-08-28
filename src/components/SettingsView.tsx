@@ -165,17 +165,9 @@ export const SettingsView: React.FC = () => {
 
   return (
     <div className="settings-view-container">
-      <div className="view-toolbar">
-        <div>
-          <h2>Settings & Configuration</h2>
-          <p className="subtle">
-            Manage privacy-first AI endpoints, Ink/Stitch handoff paths, and portable backups.
-          </p>
-        </div>
-      </div>
-
       <div className="settings-sections-stack">
         {/* AI & Vision Provider Configuration */}
+
         <section className="settings-card">
           <div className="settings-card-header">
             <div className="settings-icon-title">

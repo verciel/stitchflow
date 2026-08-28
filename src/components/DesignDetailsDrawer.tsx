@@ -1,35 +1,34 @@
 import React, { useEffect, useState } from "react";
-import { save } from "@tauri-apps/plugin-dialog";
+import { open, save } from "@tauri-apps/plugin-dialog";
 import {
-  AlertTriangle,
+  AlertCircle,
   Bot,
-  Box,
   Check,
-  ChevronRight,
-  Clock,
+  CheckCircle2,
   Copy,
   ExternalLink,
-  FileCheck,
   FileDown,
   FolderOpen,
   History,
   Image as ImageIcon,
   Layers,
-  Palette,
   Plus,
   RefreshCw,
   Sparkles,
-  Tag as TagIcon,
+  Tag,
   Trash2,
   Undo2,
   X,
+  Zap,
 } from "lucide-react";
 import {
   addDesignToCollection,
   addDesignToJob,
   addTagToDesign,
   exportDesign,
+  formatError,
   getDesignDetails,
+  getInkstitchConfig,
   getWorkflowAdvice,
   linkArtworkToDesign,
   listArtwork,
@@ -41,8 +40,8 @@ import {
   removeDesignFromJob,
   removeTagFromDesign,
   revealInFolder,
+  setInkstitchConfig,
   unlinkArtworkFromDesign,
-  updateDesignMetadata,
 } from "../lib";
 import type {
   ArtworkAsset,
@@ -68,11 +67,17 @@ const SUPPORTED_EXPORTS = [
   "JEF",
   "VP3",
   "EXP",
-  "HUS",
   "XXX",
-  "SEW",
-  "PCS",
   "PEC",
+];
+
+const FABRIC_PRESETS = [
+  { id: "cotton", label: "100% Woven Cotton / Denim" },
+  { id: "polo", label: "Pique Knit Polo Shirt" },
+  { id: "stretch", label: "Stretchy Performance Lycra / Spandex" },
+  { id: "towel", label: "Terry Cloth Towel / Velour (Pile)" },
+  { id: "cap", label: "Structured Twill Cap / Hat" },
+  { id: "fleece", label: "Heavy Fleece Hoodie / Jacket" },
 ];
 
 export const DesignDetailsDrawer: React.FC<DesignDetailsDrawerProps> = ({
@@ -91,6 +96,7 @@ export const DesignDetailsDrawer: React.FC<DesignDetailsDrawerProps> = ({
   const [isExporting, setIsExporting] = useState(false);
   const [exportNotice, setExportNotice] = useState<string | null>(null);
   const [advice, setAdvice] = useState<string | null>(null);
+  const [selectedFabric, setSelectedFabric] = useState("cotton");
   const [loadingAdvice, setLoadingAdvice] = useState(false);
 
   // Pickers state
@@ -234,7 +240,7 @@ export const DesignDetailsDrawer: React.FC<DesignDetailsDrawerProps> = ({
       await exportDesign(d.id, filePath, exportFormat);
       setExportNotice(`Exported successfully to ${filePath.split(/[\\/]/).pop()}`);
     } catch (err) {
-      setExportNotice(err instanceof Error ? err.message : "Export failed");
+      setExportNotice(formatError(err, "Export failed"));
     } finally {
       setIsExporting(false);
     }
@@ -246,7 +252,7 @@ export const DesignDetailsDrawer: React.FC<DesignDetailsDrawerProps> = ({
       const adv = await getWorkflowAdvice(d.id);
       setAdvice(adv);
     } catch (err) {
-      setAdvice(err instanceof Error ? err.message : "Advice could not be generated");
+      setAdvice(formatError(err, "Advice could not be generated"));
     } finally {
       setLoadingAdvice(false);
     }
@@ -262,7 +268,34 @@ export const DesignDetailsDrawer: React.FC<DesignDetailsDrawerProps> = ({
     try {
       await openInInkstitch(d.id);
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed to launch Ink/Stitch");
+      const msg = formatError(err);
+      if (
+        msg.toLowerCase().includes("not configured") ||
+        msg.toLowerCase().includes("path") ||
+        msg.toLowerCase().includes("executable")
+      ) {
+        if (
+          confirm(
+            "Inkscape executable path is not configured. Would you like to select inkscape.exe now?"
+          )
+        ) {
+          try {
+            const file = await open({
+              multiple: false,
+              title: "Select Inkscape Executable (inkscape.exe)",
+              filters: [{ name: "Executable", extensions: ["exe"] }],
+            });
+            if (file && typeof file === "string") {
+              await setInkstitchConfig(file);
+              await openInInkstitch(d.id);
+            }
+          } catch (configErr) {
+            alert(formatError(configErr, "Failed to set Inkscape path"));
+          }
+        }
+      } else {
+        alert(msg);
+      }
     }
   };
 
@@ -308,7 +341,7 @@ export const DesignDetailsDrawer: React.FC<DesignDetailsDrawerProps> = ({
             title="Get garment and stabilizer recommendations"
           >
             <Bot size={16} />
-            <span>Advice</span>
+            <span>AI Advice</span>
           </button>
           <button
             className="secondary icon-btn"
@@ -318,30 +351,62 @@ export const DesignDetailsDrawer: React.FC<DesignDetailsDrawerProps> = ({
             <FolderOpen size={16} />
           </button>
           <button
-            className="secondary icon-btn"
+            className="primary icon-btn"
             onClick={handleInkstitch}
-            title="Open SVG/Design in Ink/Stitch (Inkscape)"
+            title="Open in Ink/Stitch (Inkscape)"
           >
             <ExternalLink size={16} />
           </button>
         </div>
 
-        {/* Workflow Advice Banner */}
-        {advice && (
-          <div className="advice-card">
-            <div className="advice-header">
-              <b>Production Assessment</b>
-              <button className="icon-button-sm" onClick={() => setAdvice(null)}>
-                <X size={14} />
-              </button>
-            </div>
-            <div className="advice-content markdown-body">
-              {advice.split("\n").map((line, idx) => (
-                <p key={idx}>{line}</p>
-              ))}
-            </div>
+        {/* AI Production & Workflow Advisor Section */}
+        <section className="drawer-section">
+          <div className="section-head-row">
+            <h4 className="section-title text-accent">
+              <Bot size={15} /> AI PRODUCTION ADVISOR
+            </h4>
           </div>
-        )}
+          <div className="flex gap-2 mb-2">
+            <select
+              value={selectedFabric}
+              onChange={(e) => setSelectedFabric(e.target.value)}
+              className="select-input flex-1 text-xs"
+            >
+              {FABRIC_PRESETS.map((f) => (
+                <option key={f.id} value={f.id}>
+                  {f.label}
+                </option>
+              ))}
+            </select>
+            <button
+              className="secondary compact-btn"
+              onClick={handleGetAdvice}
+              disabled={loadingAdvice}
+            >
+              {loadingAdvice ? <RefreshCw size={14} className="spin" /> : <Zap size={14} />}
+              <span>Recipe</span>
+            </button>
+          </div>
+
+          {advice && (
+            <div className="advice-card mt-2">
+              <div className="advice-header">
+                <b>Production Assessment</b>
+                <button
+                  className="icon-button-sm"
+                  onClick={() => setAdvice(null)}
+                >
+                  <X size={14} />
+                </button>
+              </div>
+              <div className="advice-content markdown-body">
+                {advice.split("\n").map((line, idx) => (
+                  <p key={idx}>{line}</p>
+                ))}
+              </div>
+            </div>
+          )}
+        </section>
 
         {/* Technical Facts Grid */}
         <section className="drawer-section">
@@ -354,7 +419,7 @@ export const DesignDetailsDrawer: React.FC<DesignDetailsDrawerProps> = ({
             <div className="fact-item">
               <span className="fact-label">Dimensions</span>
               <b className="fact-val">
-                {d.widthMm ? `${d.widthMm} × ${d.heightMm} mm` : "—"}
+                {d.widthMm ? `${d.widthMm.toFixed(1)} × ${d.heightMm?.toFixed(1)} mm` : "—"}
               </b>
             </div>
             <div className="fact-item">
@@ -404,7 +469,7 @@ export const DesignDetailsDrawer: React.FC<DesignDetailsDrawerProps> = ({
         {(d.aiCategory || d.aiDescription) && (
           <section className="drawer-section ai-insights-card">
             <h4 className="section-title text-accent">
-              <Sparkles size={14} /> AI CATALOG CLASSIFICATIONS
+              <Sparkles size={14} /> AI CLASSIFICATIONS
             </h4>
             {d.aiCategory && (
               <p className="insight-row">
@@ -435,6 +500,26 @@ export const DesignDetailsDrawer: React.FC<DesignDetailsDrawerProps> = ({
           </section>
         )}
 
+        {/* Ink/Stitch Handoff Section */}
+        <section className="drawer-section">
+          <div className="section-head-row">
+            <h4 className="section-title">
+              <ExternalLink size={14} /> INK/STITCH INTEGRATION
+            </h4>
+          </div>
+          <p className="text-xs text-subtle mb-3">
+            Open this design directly inside Inkscape with the Ink/Stitch extension for vector editing and simulation.
+          </p>
+          <button
+            className="secondary full-width"
+            type="button"
+            onClick={handleInkstitch}
+          >
+            <ExternalLink size={15} />
+            <span>Open in Ink/Stitch (Inkscape)</span>
+          </button>
+        </section>
+
         {/* Tags Management */}
         <section className="drawer-section">
           <div className="section-head-row">
@@ -453,33 +538,36 @@ export const DesignDetailsDrawer: React.FC<DesignDetailsDrawerProps> = ({
                 </button>
               </span>
             ))}
+            {d.tags.length === 0 && (
+              <span className="empty-subtle">No tags assigned yet.</span>
+            )}
           </div>
           <form onSubmit={handleAddTag} className="inline-add-form mt-2">
             <input
               type="text"
-              placeholder="Add tag…"
+              placeholder="Add tag (e.g. floral, cap, logo)…"
               value={newTagInput}
               onChange={(e) => setNewTagInput(e.target.value)}
               className="compact-input"
             />
             <button type="submit" className="secondary compact-btn">
-              <Plus size={14} /> Add
+              Add
             </button>
           </form>
         </section>
 
-        {/* Organization Links: Collections & Jobs */}
+        {/* Organization: Collections & Jobs */}
         <section className="drawer-section">
           <h4 className="section-title">ORGANIZATION</h4>
           <div className="org-assignment-fields">
             <div className="org-field">
               <label>Collection:</label>
               <select
-                value={d.collectionId ?? ""}
+                value={d.collectionId || ""}
                 onChange={(e) => handleSetCollection(e.target.value)}
                 className="select-input"
               >
-                <option value="">Unassigned</option>
+                <option value="">None (Unassigned)</option>
                 {availableCollections.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name}
@@ -489,13 +577,13 @@ export const DesignDetailsDrawer: React.FC<DesignDetailsDrawerProps> = ({
             </div>
 
             <div className="org-field">
-              <label>Job Record:</label>
+              <label>Job / Production Batch:</label>
               <select
-                value={d.jobId ?? ""}
+                value={d.jobId || ""}
                 onChange={(e) => handleSetJob(e.target.value)}
                 className="select-input"
               >
-                <option value="">No linked job</option>
+                <option value="">None (Unassigned)</option>
                 {availableJobs.map((j) => (
                   <option key={j.id} value={j.id}>
                     {j.title} ({j.status})
@@ -506,17 +594,15 @@ export const DesignDetailsDrawer: React.FC<DesignDetailsDrawerProps> = ({
           </div>
         </section>
 
-        {/* Linked Artwork Assets */}
+        {/* Linked Source Artwork */}
         <section className="drawer-section">
           <div className="section-head-row">
-            <h4 className="section-title">
-              LINKED ARTWORK ({details.linkedArtwork.length})
-            </h4>
+            <h4 className="section-title">LINKED SOURCE ARTWORK</h4>
             <button
               className="text-button text-xs"
               onClick={() => setShowArtworkPicker(!showArtworkPicker)}
             >
-              <Plus size={13} /> Link Artwork
+              {showArtworkPicker ? "Cancel" : "+ Link Artwork"}
             </button>
           </div>
 
@@ -599,7 +685,7 @@ export const DesignDetailsDrawer: React.FC<DesignDetailsDrawerProps> = ({
             >
               {SUPPORTED_EXPORTS.map((fmt) => (
                 <option key={fmt} value={fmt}>
-                  {fmt} format
+                  Convert to {fmt}
                 </option>
               ))}
             </select>
@@ -609,7 +695,7 @@ export const DesignDetailsDrawer: React.FC<DesignDetailsDrawerProps> = ({
               disabled={isExporting}
             >
               <FileDown size={15} />
-              <span>{isExporting ? "Exporting…" : "Export"}</span>
+              <span>{isExporting ? "Exporting…" : "Export File"}</span>
             </button>
           </div>
           {exportNotice && (

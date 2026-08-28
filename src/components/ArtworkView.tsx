@@ -87,18 +87,6 @@ export const ArtworkView: React.FC = () => {
 
   return (
     <div className="artwork-view-container">
-      <div className="view-toolbar">
-        <div>
-          <h2>Source Artwork</h2>
-          <p className="subtle">
-            Manage vector logos, sketches, and customer mockups (PNG, JPG, SVG, PDF) linked to designs and jobs.
-          </p>
-        </div>
-        <button className="primary" onClick={handleImport}>
-          <Plus size={16} /> Import Artwork
-        </button>
-      </div>
-
       {loading && assets.length === 0 ? (
         <div className="empty-box">
           <RefreshCw size={24} className="spin text-accent" />
@@ -110,10 +98,11 @@ export const ArtworkView: React.FC = () => {
           <h3>No artwork assets imported yet</h3>
           <p>Import PNG, JPG, SVG, or PDF artwork files to link with embroidery designs.</p>
           <button className="primary mt-3" onClick={handleImport}>
-            Import Artwork
+            <Plus size={16} /> Import Artwork
           </button>
         </div>
       ) : (
+
         <div className="artwork-grid">
           {assets.map((asset) => (
             <article key={asset.id} className="artwork-card">

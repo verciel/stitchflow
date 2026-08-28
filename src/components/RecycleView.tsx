@@ -62,13 +62,10 @@ export const RecycleView: React.FC<RecycleViewProps> = ({
 
   return (
     <div className="recycle-view-container">
-      <div className="view-toolbar">
-        <div>
-          <h2>Recycle Area</h2>
-          <p className="subtle">
-            Deleted designs are quarantined here. You can restore them anytime or permanently remove them.
-          </p>
-        </div>
+      <div className="flex justify-between items-center mb-4">
+        <p className="subtle">
+          Deleted designs are quarantined here safely before permanent removal.
+        </p>
         {recycledDesigns.length > 0 && (
           <button className="danger" onClick={handleEmptyAll}>
             <Trash2 size={16} /> Empty Recycle Bin
@@ -77,6 +74,7 @@ export const RecycleView: React.FC<RecycleViewProps> = ({
       </div>
 
       {recycledDesigns.length === 0 ? (
+
         <div className="empty-box">
           <ArchiveRestore size={36} />
           <h3>Recycle area is empty</h3>

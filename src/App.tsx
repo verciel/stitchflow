@@ -10,6 +10,8 @@ import {
   Image as ImageIcon,
   Import,
   LayoutList,
+  PanelLeftClose,
+  PanelLeftOpen,
   Plus,
   RefreshCw,
   Search,
@@ -18,6 +20,7 @@ import {
   Tag as TagIcon,
   Trash2,
   X,
+  Zap,
 } from "lucide-react";
 import {
   deleteDesign,
@@ -26,6 +29,7 @@ import {
   listDesigns,
   listJobs,
   listTags,
+  naturalLanguageSearch,
   restoreDesign,
 } from "./lib";
 import type {
@@ -62,17 +66,21 @@ const FORMAT_OPTIONS = [
   "PEC",
 ];
 
-export function App() {
+export const App: React.FC = () => {
   const [section, setSection] = useState<Section>("library");
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+
+  // Catalog State
   const [designs, setDesigns] = useState<Design[]>([]);
   const [collections, setCollections] = useState<Collection[]>([]);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
   const [recycledDesigns, setRecycledDesigns] = useState<Design[]>([]);
 
-  // Search and Filter State
+  // Filter State
   const [query, setQuery] = useState("");
-  const [selectedFormat, setSelectedFormat] = useState("all");
+  const [isAiSearchActive, setIsAiSearchActive] = useState(false);
+  const [selectedFormat, setSelectedFormat] = useState<string>("all");
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [selectedCollectionId, setSelectedCollectionId] = useState<string | null>(null);
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
@@ -137,6 +145,20 @@ export function App() {
     void reloadData();
   }, [query, selectedFormat, selectedTag, selectedCollectionId, selectedJobId, sortBy]);
 
+  const handleSearchChange = async (val: string) => {
+    setQuery(val);
+    if (isAiSearchActive && val.trim().length > 3) {
+      try {
+        const parsed = await naturalLanguageSearch(val);
+        if (parsed.format && parsed.format !== selectedFormat) {
+          setSelectedFormat(parsed.format);
+        }
+      } catch (err) {
+        console.error("AI natural search error:", err);
+      }
+    }
+  };
+
   const handleResetFilters = () => {
     setQuery("");
     setSelectedFormat("all");
@@ -165,18 +187,30 @@ export function App() {
   return (
     <main className="app-shell">
       {/* Primary Sidebar */}
-      <aside className="sidebar">
+      <aside className={`sidebar ${isSidebarCollapsed ? "collapsed" : ""}`}>
         <div className="brand">
           <div className="brand-mark">S</div>
           <div className="brand-text">
             <span className="brand-title">Stitchflow</span>
-            <span className="brand-subtitle">V1 Local Edition</span>
+            <span className="brand-subtitle">V1 Desktop Edition</span>
           </div>
+          <button
+            className="sidebar-collapse-btn"
+            onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+            title={isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            {isSidebarCollapsed ? (
+              <PanelLeftOpen size={16} />
+            ) : (
+              <PanelLeftClose size={16} />
+            )}
+          </button>
         </div>
 
         <button
           className="import-button"
           onClick={() => setIsImportModalOpen(true)}
+          title="Import embroidery designs or artwork"
         >
           <Import size={18} />
           <span>Import designs</span>
@@ -188,6 +222,7 @@ export function App() {
             label="Library"
             count={designs.length}
             active={section === "library"}
+            collapsed={isSidebarCollapsed}
             onClick={() => {
               setSection("library");
               setSelectedCollectionId(null);
@@ -199,6 +234,7 @@ export function App() {
             label="Collections"
             count={collections.length}
             active={section === "collections"}
+            collapsed={isSidebarCollapsed}
             onClick={() => setSection("collections")}
           />
           <NavItem
@@ -206,12 +242,14 @@ export function App() {
             label="Jobs"
             count={jobs.length}
             active={section === "jobs"}
+            collapsed={isSidebarCollapsed}
             onClick={() => setSection("jobs")}
           />
           <NavItem
             icon={<ImageIcon size={18} />}
             label="Artwork"
             active={section === "artwork"}
+            collapsed={isSidebarCollapsed}
             onClick={() => setSection("artwork")}
           />
           <NavItem
@@ -219,6 +257,7 @@ export function App() {
             label="Recycle area"
             count={recycledDesigns.length > 0 ? recycledDesigns.length : undefined}
             active={section === "recycle"}
+            collapsed={isSidebarCollapsed}
             onClick={() => setSection("recycle")}
           />
         </nav>
@@ -228,6 +267,7 @@ export function App() {
             icon={<Settings2 size={18} />}
             label="Settings"
             active={section === "settings"}
+            collapsed={isSidebarCollapsed}
             onClick={() => setSection("settings")}
           />
           <div className="account-card">
@@ -258,19 +298,27 @@ export function App() {
               {section === "library"
                 ? activeCollectionName || activeJobName || "Your Embroidery Designs"
                 : section === "collections"
-                ? "Collections"
+                ? "Design Collections"
                 : section === "jobs"
-                ? "Jobs"
+                ? "Production Jobs"
                 : section === "artwork"
                 ? "Source Artwork Assets"
                 : section === "recycle"
                 ? "Recycle Area"
-                : "Application Settings"}
+                : "Settings & Configuration"}
             </h1>
             <p className="subtle">
               {section === "library"
                 ? `${designs.length} designs indexed · Secure local storage`
-                : "Organize, inspect, and export your embroidery work."}
+                : section === "collections"
+                ? "Organize embroidery designs into themed series and seasonal folders."
+                : section === "jobs"
+                ? "Production batch containers linking garments, hoop sizes, and customer artwork."
+                : section === "artwork"
+                ? "Manage customer mockups, sketches, and vector assets (PNG, JPG, SVG, PDF)."
+                : section === "recycle"
+                ? "Safely restore quarantined files or permanently purge deleted designs."
+                : "Configure vision-capable AI endpoints, Ink/Stitch handoff paths, and backup archives."}
             </p>
           </div>
 
@@ -286,7 +334,7 @@ export function App() {
                   }
                 }}
                 disabled={designs.length === 0}
-                title="Run Vision AI on selected design"
+                title="Run Vision AI analysis on selected design"
               >
                 <Sparkles size={16} className="text-accent" />
                 <span>Analyze with AI</span>
@@ -341,10 +389,23 @@ export function App() {
                 <Search size={18} className="search-icon" />
                 <input
                   type="text"
-                  placeholder="Search by title, filename, tags, or AI category…"
+                  placeholder={
+                    isAiSearchActive
+                      ? "Natural search (e.g., 'red florals for towels', 'PES under 5000 sts')…"
+                      : "Search by title, filename, tags, or AI category…"
+                  }
                   value={query}
-                  onChange={(e) => setQuery(e.target.value)}
+                  onChange={(e) => void handleSearchChange(e.target.value)}
                 />
+                <button
+                  type="button"
+                  className={`ai-search-toggle-btn ${isAiSearchActive ? "active" : ""}`}
+                  onClick={() => setIsAiSearchActive(!isAiSearchActive)}
+                  title="Toggle Natural Language AI Search"
+                >
+                  <Sparkles size={13} />
+                  <span>AI</span>
+                </button>
                 {query && (
                   <button
                     className="icon-button-sm"
@@ -389,37 +450,38 @@ export function App() {
                 </select>
               </div>
 
+              {/* Reset Filters */}
               {hasActiveFilters && (
                 <button
-                  className="secondary compact-btn"
+                  className="text-button text-sm"
                   onClick={handleResetFilters}
                 >
-                  Clear Filters
+                  Clear filters
                 </button>
               )}
 
-              <span className="spacer" />
+              <div className="spacer" />
 
-              {/* Grid / List View Toggle */}
+              {/* Grid / Table View Toggle */}
               <div className="view-toggle-group">
                 <button
                   className={`toggle-btn ${isGridView ? "active" : ""}`}
                   onClick={() => setIsGridView(true)}
-                  aria-label="Grid view"
+                  title="Grid view"
                 >
                   <Grid2X2 size={17} />
                 </button>
                 <button
                   className={`toggle-btn ${!isGridView ? "active" : ""}`}
                   onClick={() => setIsGridView(false)}
-                  aria-label="List view"
+                  title="Table view"
                 >
                   <LayoutList size={17} />
                 </button>
               </div>
             </div>
 
-            {/* Format Filter Pill Bar */}
+            {/* Format Pills Bar */}
             <div className="format-pills-bar">
               {FORMAT_OPTIONS.map((fmt) => (
                 <button
@@ -427,44 +489,54 @@ export function App() {
                   className={`format-pill ${selectedFormat === fmt ? "active" : ""}`}
                   onClick={() => setSelectedFormat(fmt)}
                 >
-                  {fmt.toUpperCase()}
+                  {fmt === "all" ? "All Formats" : fmt}
                 </button>
               ))}
             </div>
 
-            {/* Main Design Catalog Content */}
-            {loading && designs.length === 0 ? (
-              <div className="empty-box">
-                <RefreshCw size={32} className="spin text-accent" />
-                <p>Loading design library…</p>
+            {/* Active Collection or Job Banner */}
+            {(activeCollectionName || activeJobName) && (
+              <div className="active-scope-banner">
+                <span>
+                  Showing designs scoped to:{" "}
+                  <b>{activeCollectionName || activeJobName}</b>
+                </span>
+                <button
+                  className="text-button text-xs"
+                  onClick={() => {
+                    setSelectedCollectionId(null);
+                    setSelectedJobId(null);
+                  }}
+                >
+                  Show all designs
+                </button>
               </div>
-            ) : designs.length === 0 ? (
+            )}
+
+            {/* Design Catalog Content */}
+            {designs.length === 0 ? (
               <div className="empty-box">
-                <ArchiveRestore size={38} />
+                <Filter size={36} />
                 <h3>No embroidery designs found</h3>
                 <p>
                   {hasActiveFilters
-                    ? "Try loosening your search query or format filters."
-                    : "Drag and drop or import DST, PES, JEF, or other embroidery files to begin."}
+                    ? "Try adjusting your search query, format, or tag filters."
+                    : "Import DST, PES, JEF, VP3, EXP, HUS, XXX, SEW, PCS, PEC files to get started."}
                 </p>
                 {hasActiveFilters ? (
-                  <button
-                    className="secondary mt-3"
-                    onClick={handleResetFilters}
-                  >
-                    Reset all filters
+                  <button className="secondary mt-3" onClick={handleResetFilters}>
+                    Reset filters
                   </button>
                 ) : (
                   <button
                     className="primary mt-3"
                     onClick={() => setIsImportModalOpen(true)}
                   >
-                    Import Designs
+                    <Plus size={16} /> Import Designs
                   </button>
                 )}
               </div>
             ) : isGridView ? (
-              /* Grid Layout */
               <div className="design-grid">
                 {designs.map((d) => (
                   <article
@@ -477,92 +549,98 @@ export function App() {
                       title={d.title}
                       format={d.format}
                     />
-                    <div className="card-info">
-                      <div>
-                        <h3>{d.title}</h3>
-                        <p className="text-xs text-subtle truncate">{d.filename}</p>
+                    <div className="design-card-content">
+                      <div className="design-card-header">
+                        <h4 className="design-title truncate" title={d.title}>
+                          {d.title}
+                        </h4>
+                        <span className="format-badge">{d.format}</span>
                       </div>
-                      <span className="format-badge">{d.format}</span>
-                    </div>
+                      <p className="design-filename truncate">{d.filename}</p>
 
-                    <div className="design-facts">
-                      <span>
-                        {d.widthMm ? `${d.widthMm} × ${d.heightMm} mm` : "—"}
-                      </span>
-                      <span>{d.stitches?.toLocaleString() ?? "—"} stitches</span>
-                    </div>
-
-                    {d.tags && d.tags.length > 0 && (
-                      <div className="tag-row">
-                        {d.tags.slice(0, 3).map((t) => (
-                          <span key={t} className="tag-chip">
-                            #{t}
-                          </span>
-                        ))}
-                        {d.tags.length > 3 && (
-                          <span className="tag-more">+{d.tags.length - 3}</span>
-                        )}
+                      <div className="design-stats">
+                        <span>
+                          {d.widthMm && d.heightMm
+                            ? `${d.widthMm.toFixed(0)} × ${d.heightMm.toFixed(0)} mm`
+                            : "—"}
+                        </span>
+                        <span>{d.stitches ? `${d.stitches.toLocaleString()} sts` : "—"}</span>
                       </div>
-                    )}
+
+                      {/* Tag preview chips */}
+                      {d.tags.length > 0 && (
+                        <div className="design-card-tags">
+                          {d.tags.slice(0, 3).map((t) => (
+                            <span key={t} className="card-tag-pill">
+                              #{t}
+                            </span>
+                          ))}
+                          {d.tags.length > 3 && (
+                            <span className="card-tag-more">
+                              +{d.tags.length - 3}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </article>
                 ))}
               </div>
             ) : (
-              /* List / Table Layout */
-              <div className="design-table-container">
+              /* Table View */
+              <div className="table-container">
                 <table className="design-table">
                   <thead>
                     <tr>
-                      <th style={{ width: 60 }}>Preview</th>
-                      <th>Title & Filename</th>
+                      <th>Title</th>
                       <th>Format</th>
                       <th>Dimensions</th>
                       <th>Stitches</th>
                       <th>Colors</th>
                       <th>Tags</th>
-                      <th>Imported</th>
+                      <th>Size</th>
+                      <th>Date</th>
                     </tr>
                   </thead>
                   <tbody>
                     {designs.map((d) => (
                       <tr
                         key={d.id}
-                        className={selectedDesign?.id === d.id ? "selected-row" : ""}
+                        className={selectedDesign?.id === d.id ? "selected" : ""}
                         onClick={() => setSelectedDesign(d)}
                       >
                         <td>
-                          <div className="table-thumb">
-                            <DesignImage
-                              previewPath={d.previewPath}
-                              title={d.title}
-                              format={d.format}
-                            />
-                          </div>
-                        </td>
-                        <td>
-                          <b className="block">{d.title}</b>
-                          <span className="text-xs text-subtle">{d.filename}</span>
+                          <b>{d.title}</b>
+                          <small className="block text-subtle">{d.filename}</small>
                         </td>
                         <td>
                           <span className="format-badge">{d.format}</span>
                         </td>
-                        <td className="text-sm">
-                          {d.widthMm ? `${d.widthMm} × ${d.heightMm} mm` : "—"}
-                        </td>
-                        <td className="text-sm font-mono">
-                          {d.stitches?.toLocaleString() ?? "—"}
-                        </td>
-                        <td className="text-sm">{d.colors ?? "—"}</td>
                         <td>
-                          <div className="tag-row">
-                            {d.tags.slice(0, 2).map((t) => (
-                              <span key={t} className="tag-chip">
-                                #{t}
-                              </span>
-                            ))}
-                          </div>
+                          {d.widthMm && d.heightMm
+                            ? `${d.widthMm.toFixed(1)} × ${d.heightMm.toFixed(1)} mm`
+                            : "—"}
                         </td>
-                        <td className="text-xs text-subtle">
+                        <td>{d.stitches ? d.stitches.toLocaleString() : "—"}</td>
+                        <td>{d.colors ?? "—"}</td>
+                        <td>
+                          {d.tags.length > 0 ? (
+                            <div className="flex gap-1 flex-wrap">
+                              {d.tags.slice(0, 2).map((t) => (
+                                <span key={t} className="card-tag-pill text-xs">
+                                  #{t}
+                                </span>
+                              ))}
+                              {d.tags.length > 2 && (
+                                <small>+{d.tags.length - 2}</small>
+                              )}
+                            </div>
+                          ) : (
+                            "—"
+                          )}
+                        </td>
+                        <td>{(d.sizeBytes / 1024).toFixed(1)} KB</td>
+                        <td className="text-subtle text-xs">
                           {new Date(d.importedAt).toLocaleDateString()}
                         </td>
                       </tr>
@@ -575,75 +653,92 @@ export function App() {
         )}
       </section>
 
-      {/* Selected Design Details Inspector Drawer */}
+      {/* Design Inspector Drawer */}
       {selectedDesign && (
         <DesignDetailsDrawer
           designId={selectedDesign.id}
           onClose={() => setSelectedDesign(null)}
           onRefreshCatalog={reloadData}
           onTriggerAi={(d) => setAiTargetDesign(d)}
-          onDeleteDesign={(id) => {
-            void deleteDesign(id).then(() => {
+          onDeleteDesign={async (id) => {
+            try {
+              await deleteDesign(id);
               setSelectedDesign(null);
-              void reloadData();
-            });
+              await reloadData();
+            } catch (err) {
+              console.error(err);
+            }
           }}
-          onRestoreDesign={(id) => {
-            void restoreDesign(id).then(() => {
-              setSelectedDesign(null);
-              void reloadData();
-            });
+          onRestoreDesign={async (id) => {
+            try {
+              await restoreDesign(id);
+              await reloadData();
+            } catch (err) {
+              console.error(err);
+            }
           }}
         />
       )}
 
-      {/* Batch Import Dialog */}
+      {/* Batch Import Dropzone Modal */}
       <BatchImportModal
         isOpen={isImportModalOpen}
         onClose={() => setIsImportModalOpen(false)}
         onImportComplete={reloadData}
       />
 
-      {/* AI Review & Analysis Modal */}
-      <AiReviewModal
-        design={aiTargetDesign}
-        aiConfig={aiConfig}
-        isOpen={Boolean(aiTargetDesign)}
-        onClose={() => setAiTargetDesign(null)}
-        onApplied={reloadData}
-        onOpenSettings={() => {
-          setAiTargetDesign(null);
-          setSection("settings");
-        }}
-      />
+      {/* AI Review & Classification Modal */}
+      {aiTargetDesign && (
+        <AiReviewModal
+          isOpen={Boolean(aiTargetDesign)}
+          design={aiTargetDesign}
+          aiConfig={aiConfig}
+          onClose={() => setAiTargetDesign(null)}
+          onApplied={() => {
+            void reloadData();
+            setAiTargetDesign(null);
+          }}
+          onOpenSettings={() => {
+            setAiTargetDesign(null);
+            setSection("settings");
+          }}
+        />
+      )}
 
     </main>
   );
+};
+
+interface NavItemProps {
+  icon: React.ReactNode;
+  label: string;
+  count?: number;
+  active?: boolean;
+  collapsed?: boolean;
+  onClick: () => void;
 }
 
-function NavItem({
+const NavItem: React.FC<NavItemProps> = ({
   icon,
   label,
   count,
   active,
+  collapsed,
   onClick,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  count?: number;
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      className={`nav-item ${active ? "active" : ""}`}
-      onClick={onClick}
-    >
-      <span className="nav-icon">{icon}</span>
-      <span className="nav-label">{label}</span>
-      {count !== undefined && count > 0 && (
-        <span className="nav-count-badge">{count}</span>
-      )}
-    </button>
-  );
-}
+}) => (
+  <button
+    className={`nav-item ${active ? "active" : ""}`}
+    onClick={onClick}
+    title={collapsed ? `${label}${count !== undefined ? ` (${count})` : ""}` : undefined}
+  >
+    {icon}
+    {!collapsed && (
+      <>
+        <span className="nav-label">{label}</span>
+        {count !== undefined && (
+          <span className="nav-count-badge">{count}</span>
+        )}
+      </>
+    )}
+  </button>
+);

@@ -57,28 +57,21 @@ export const JobsView: React.FC<JobsViewProps> = ({
 
   return (
     <div className="jobs-view-container">
-      <div className="view-toolbar">
-        <div>
-          <h2>Production Jobs</h2>
-          <p className="subtle">
-            Lightweight organizational containers linking designs and artwork to production runs.
-          </p>
+      <div className="flex justify-between items-center mb-4 flex-wrap gap-3">
+        <div className="status-filter-tabs">
+          {["all", "draft", "active", "completed", "archived"].map((st) => (
+            <button
+              key={st}
+              className={`status-tab ${statusFilter === st ? "active" : ""}`}
+              onClick={() => setStatusFilter(st)}
+            >
+              {st.toUpperCase()}
+            </button>
+          ))}
         </div>
         <button className="primary" onClick={() => setShowModal(true)}>
-          <Plus size={16} /> Create Job
+          <Plus size={16} /> New Job Container
         </button>
-      </div>
-
-      <div className="status-tabs-row">
-        {["all", "active", "draft", "completed", "archived"].map((st) => (
-          <button
-            key={st}
-            className={`status-tab ${statusFilter === st ? "active" : ""}`}
-            onClick={() => setStatusFilter(st)}
-          >
-            {st.toUpperCase()}
-          </button>
-        ))}
       </div>
 
       <div className="jobs-list-grid">

@@ -54,13 +54,10 @@ export const CollectionsView: React.FC<CollectionsViewProps> = ({
 
   return (
     <div className="collections-container">
-      <div className="view-toolbar">
-        <div>
-          <h2>Collections</h2>
-          <p className="subtle">
-            Group related embroidery designs for seasonal drops, client orders, or themed series.
-          </p>
-        </div>
+      <div className="flex justify-between items-center mb-4">
+        <p className="subtle">
+          Group related embroidery designs into themed folders and production batches.
+        </p>
         <button className="primary" onClick={() => setShowModal(true)}>
           <FolderPlus size={16} /> New Collection
         </button>
