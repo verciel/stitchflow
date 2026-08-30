@@ -94,12 +94,14 @@ pub fn delete_artwork(state: State<AppState>, asset_id: String) -> Result<(), St
 #[tauri::command]
 pub fn read_image_data(path: String) -> Result<String, String> {
     use base64::prelude::*;
-    let p = std::path::Path::new(&path);
+    let clean_path = path.replace('/', std::path::MAIN_SEPARATOR_STR);
+    let p = std::path::Path::new(&clean_path);
     if !p.exists() || !p.is_file() {
         return Err("Image file not found".into());
     }
 
     let bytes = fs::read(p).map_err(|e| e.to_string())?;
+
     let ext = p
         .extension()
         .and_then(|x| x.to_str())

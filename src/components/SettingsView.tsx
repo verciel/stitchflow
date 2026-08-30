@@ -20,12 +20,17 @@ import {
   formatError,
   getAiConfig,
   getInkstitchConfig,
+  getSettings,
   restoreBackup,
   saveAiConfig,
+  saveSetting,
   setInkstitchConfig,
+
   testAiConnection,
+  testHfConnection,
   validateBackup,
 } from "../lib";
+
 import type { AiConfig, InkstitchConfig } from "../types";
 
 interface SettingsViewProps {
@@ -44,6 +49,15 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onRefresh }) => {
   const [aiTestResult, setAiTestResult] = useState<{ success: boolean; msg: string } | null>(null);
   const [savingAi, setSavingAi] = useState(false);
 
+  // Hugging Face Generator State
+  const [hfToken, setHfToken] = useState("");
+  const [hfModel, setHfModel] = useState("");
+  const [testingHf, setTestingHf] = useState(false);
+  const [hfTestResult, setHfTestResult] = useState<{ success: boolean; msg: string } | null>(null);
+
+
+
+
   // Ink/Stitch State
   const [inkstitch, setInkstitchState] = useState<InkstitchConfig>({
     inkscapePath: "",
@@ -56,9 +70,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onRefresh }) => {
   const [isRestoring, setIsRestoring] = useState(false);
 
   useEffect(() => {
-    void Promise.all([getAiConfig(), getInkstitchConfig()]).then(([ai, ink]) => {
+    void Promise.all([getAiConfig(), getInkstitchConfig(), getSettings()]).then(([ai, ink, settings]) => {
       setAiConfigState(ai);
       setInkstitchState(ink);
+      if (settings.hf_api_token) setHfToken(settings.hf_api_token);
+      if (settings.hf_model) setHfModel(settings.hf_model);
     });
   }, []);
 
@@ -73,9 +89,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onRefresh }) => {
           Boolean(aiConfig.apiKey.trim() || !aiConfig.endpoint.includes("api.openai.com")),
       };
       await saveAiConfig(toSave);
+      await saveSetting("hf_api_token", hfToken);
+      await saveSetting("hf_model", hfModel);
       setAiConfigState(toSave);
       onRefresh?.();
-      alert("AI Configuration saved and enabled successfully.");
+      alert("AI & Hugging Face settings saved successfully.");
     } catch (err) {
       alert(formatError(err, "Failed to save AI config"));
     } finally {
@@ -84,6 +102,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onRefresh }) => {
   };
 
   const handleTestAi = async () => {
+
     try {
       setTestingAi(true);
       setAiTestResult(null);
@@ -106,7 +125,26 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onRefresh }) => {
     }
   };
 
+  const handleTestHf = async () => {
+    try {
+      setTestingHf(true);
+      setHfTestResult(null);
+      const res = await testHfConnection(hfToken, hfModel);
+      setHfTestResult({ success: true, msg: res });
+      await saveSetting("hf_api_token", hfToken);
+      await saveSetting("hf_model", hfModel);
+    } catch (err) {
+      setHfTestResult({
+        success: false,
+        msg: formatError(err, "Hugging Face connection failed"),
+      });
+    } finally {
+      setTestingHf(false);
+    }
+  };
+
   const handleBrowseInkscape = async () => {
+
 
     try {
       const file = await open({
@@ -266,7 +304,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onRefresh }) => {
                 <KeyRound size={16} />
                 <input
                   type="password"
-                  placeholder="sk-…"
+                  placeholder="sk-… (OpenAI / Groq API key)"
                   value={aiConfig.apiKey}
                   onChange={(e) =>
                     setAiConfigState({ ...aiConfig, apiKey: e.target.value })
@@ -276,31 +314,92 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onRefresh }) => {
               <small className="help-text">Leave blank for local unauthenticated models.</small>
             </div>
 
-            <div className="form-actions-split">
+            <div style={{ marginBottom: "16px" }}>
               <button
                 type="button"
-                className="secondary"
+                className="secondary compact-btn"
                 onClick={handleTestAi}
                 disabled={testingAi || !aiConfig.endpoint}
               >
-                {testingAi ? <RefreshCw size={15} className="spin" /> : <Server size={15} />}
-                <span>Test Connection</span>
+                {testingAi ? <RefreshCw size={14} className="spin" /> : <Server size={14} />}
+                <span>Test Catalog AI Connection</span>
               </button>
 
+              {aiTestResult && (
+                <div
+                  className={`alert-banner mt-2 ${aiTestResult.success ? "alert-success" : "alert-error"}`}
+                >
+                  {aiTestResult.success ? <CheckCircle2 size={16} /> : <ShieldCheck size={16} />}
+                  <span>{aiTestResult.msg}</span>
+                </div>
+              )}
+            </div>
+
+            <hr style={{ borderColor: "var(--border-color)", margin: "20px 0" }} />
+
+            <div style={{ marginBottom: "12px" }}>
+              <b className="text-sm" style={{ color: "var(--accent)" }}>Design Creation Engine</b>
+              <p className="subtle text-xs mt-1">
+                Generate new companion designs and save them directly to your library. Works out-of-the-box with zero configuration.
+              </p>
+            </div>
+
+            <div className="form-group">
+              <label>Custom Endpoint URL (Optional)</label>
+              <input
+                type="text"
+                value={hfModel}
+                onChange={(e) => setHfModel(e.target.value)}
+                placeholder="Leave blank for built-in generator, or paste custom endpoint URL"
+                style={{ width: "100%", padding: "8px 10px" }}
+              />
+              <small className="help-text">Leave blank to use the built-in generator, or paste your custom Hugging Face / private cloud URL.</small>
+            </div>
+
+            <div className="form-group">
+              <label>API Access Token (Optional)</label>
+              <div className="input-with-icon">
+                <KeyRound size={16} />
+                <input
+                  type="password"
+                  placeholder="hf_… (Only required for authenticated private endpoints)"
+                  value={hfToken}
+                  onChange={(e) => setHfToken(e.target.value)}
+                />
+              </div>
+              <small className="help-text">Optional: enter your token only if using a private custom endpoint.</small>
+            </div>
+
+            <div style={{ marginBottom: "20px" }}>
+              <button
+                type="button"
+                className="secondary compact-btn"
+                onClick={handleTestHf}
+                disabled={testingHf}
+              >
+                {testingHf ? <RefreshCw size={14} className="spin" /> : <Sparkles size={14} />}
+                <span>Test Design Generator</span>
+              </button>
+
+              {hfTestResult && (
+                <div
+                  className={`alert-banner mt-2 ${hfTestResult.success ? "alert-success" : "alert-error"}`}
+                >
+                  {hfTestResult.success ? <CheckCircle2 size={16} /> : <ShieldCheck size={16} />}
+                  <span>{hfTestResult.msg}</span>
+                </div>
+              )}
+            </div>
+
+
+            <div className="form-actions-split" style={{ borderTop: "1px solid var(--border-color)", paddingTop: "16px" }}>
+              <div />
               <button type="submit" className="primary" disabled={savingAi}>
                 <Save size={15} />
-                <span>Save AI Settings</span>
+                <span>Save All AI & Hugging Face Settings</span>
               </button>
             </div>
 
-            {aiTestResult && (
-              <div
-                className={`alert-banner mt-3 ${aiTestResult.success ? "alert-success" : "alert-error"}`}
-              >
-                {aiTestResult.success ? <CheckCircle2 size={16} /> : <ShieldCheck size={16} />}
-                <span>{aiTestResult.msg}</span>
-              </div>
-            )}
           </form>
         </section>
 

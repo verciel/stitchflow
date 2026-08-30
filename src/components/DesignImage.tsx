@@ -9,6 +9,7 @@ interface DesignImageProps {
   format: string;
   className?: string;
   large?: boolean;
+  style?: React.CSSProperties;
 }
 
 const formatColor = (format: string) => {
@@ -33,7 +34,9 @@ export const DesignImage: React.FC<DesignImageProps> = ({
   format,
   className = "",
   large = false,
+  style,
 }) => {
+
   const [dataUri, setDataUri] = useState<string | null>(() => {
     return previewPath ? previewCache.get(previewPath) ?? null : null;
   });
@@ -86,7 +89,7 @@ export const DesignImage: React.FC<DesignImageProps> = ({
 
   if (dataUri && !error) {
     return (
-      <div className={`design-image-container ${large ? "large" : ""} ${className}`}>
+      <div className={`design-image-container ${large ? "large" : ""} ${className}`} style={style}>
         <img
           src={dataUri}
           alt={title}
@@ -103,8 +106,9 @@ export const DesignImage: React.FC<DesignImageProps> = ({
   return (
     <div
       className={`design-image-fallback ${large ? "large" : ""} ${className}`}
-      style={{ "--accent": accent } as React.CSSProperties}
+      style={{ ...style, "--accent": accent } as React.CSSProperties}
     >
+
       <span className="hoop-guide" />
       <span className="stitch-pattern stitch-1" />
       <span className="stitch-pattern stitch-2" />

@@ -21,5 +21,6 @@ test_sample.pes
 release-dist/
 src-tauri/embroidery-engine/build/
 src-tauri/embroidery-engine/dist/
-*.spec
+test_patch_witch.png
+scratch/
 

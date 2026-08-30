@@ -8,11 +8,14 @@ import type {
   Design,
   DesignDetails,
   FilterOptions,
+  GeneratedArtworkResult,
   ImportResult,
   InkstitchConfig,
   Job,
+  ProposedEditResult,
   Tag,
 } from "./types";
+
 
 export const hasTauri = () => typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
@@ -236,7 +239,15 @@ export async function getDesignDetails(id: string): Promise<DesignDetails> {
 
 
 
+export async function findSimilarDesigns(designId: string, limit = 8): Promise<Design[]> {
+  if (!hasTauri()) {
+    return MOCK_DESIGNS.filter((d) => d.id !== designId).slice(0, limit);
+  }
+  return invoke("find_similar_designs", { designId, limit });
+}
+
 export async function updateDesignMetadata(
+
   id: string,
   title?: string,
   description?: string
@@ -470,6 +481,14 @@ export async function testAiConnection(config: AiConfig): Promise<string> {
   return invoke("test_ai_connection", { config });
 }
 
+export async function testHfConnection(token?: string, model?: string): Promise<string> {
+  if (!hasTauri()) {
+    return "Connected to Hugging Face successfully!";
+  }
+  return invoke("test_hf_connection", { token, model });
+}
+
+
 export async function analyzeDesigns(designIds: string[]): Promise<AiSuggestion[]> {
   return invoke("analyze_designs", { designIds });
 }
@@ -486,14 +505,76 @@ export async function getWorkflowAdvice(designId: string): Promise<string> {
   return invoke("get_workflow_advice", { designId });
 }
 
-export async function askAiCustom(designId: string, userPrompt: string): Promise<string> {
+export async function generateAiDesignImage(
+  designId: string,
+  customPrompt?: string,
+  styleMode?: string
+): Promise<GeneratedArtworkResult> {
   if (!hasTauri()) {
-    return `AI Production Advice for design:\n- Recommended Stabilizer: 2.5oz Cutaway\n- Needle: 75/11 Ballpoint for knits\n- Suitable for scaling up to 110% without re-digitizing.`;
+    return {
+      imageData: "",
+      tempPath: "/mock/ai_gen.png",
+      promptUsed: "mock prompt",
+    };
   }
-  return invoke("ask_ai_custom", { designId, userPrompt });
+  return invoke("generate_ai_design_image", { designId, customPrompt, styleMode });
+}
+
+
+export async function digitizeAndImportDesign(params: {
+  sourceImagePath: string;
+  title: string;
+  targetFormat: string;
+  widthMm: number;
+  heightMm: number;
+  tags: string[];
+  category?: string;
+}): Promise<Design> {
+  if (!hasTauri()) {
+    return MOCK_DESIGNS[0];
+  }
+  return invoke("digitize_and_import_design", {
+    sourceImagePath: params.sourceImagePath,
+    title: params.title,
+    targetFormat: params.targetFormat,
+    widthMm: params.widthMm,
+    heightMm: params.heightMm,
+    tags: params.tags,
+    category: params.category,
+  });
+}
+
+export async function proposeAiEdit(
+
+  designId: string,
+  instruction: string
+): Promise<ProposedEditResult> {
+  if (!hasTauri()) {
+    throw new Error("Smart Edit requires desktop Tauri engine");
+  }
+  return invoke("propose_ai_edit", { designId, instruction });
+}
+
+export async function applyProposedEdit(params: {
+  designId: string;
+  tempEditedPath: string;
+  tempPreviewPath: string;
+  saveMode: "new_revision" | "new_design";
+}): Promise<Design> {
+  if (!hasTauri()) {
+    return MOCK_DESIGNS[0];
+  }
+  return invoke("apply_proposed_edit", {
+    designId: params.designId,
+    tempEditedPath: params.tempEditedPath,
+    tempPreviewPath: params.tempPreviewPath,
+    saveMode: params.saveMode,
+  });
 }
 
 // Utility
+
+
 
 export async function readImageData(path: string): Promise<string> {
   return invoke("read_image_data", { path });

@@ -57,7 +57,7 @@ export const JobsView: React.FC<JobsViewProps> = ({
 
   return (
     <div className="jobs-view-container">
-      <div className="mb-4">
+      <div className="jobs-header-tabs" style={{ marginBottom: "28px" }}>
         <div className="status-filter-tabs">
           {["all", "draft", "active", "completed", "archived"].map((st) => (
             <button
@@ -71,8 +71,8 @@ export const JobsView: React.FC<JobsViewProps> = ({
         </div>
       </div>
 
-
       <div className="jobs-list-grid">
+
         {filteredJobs.map((j) => (
           <article
             key={j.id}

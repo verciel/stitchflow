@@ -388,15 +388,18 @@ export const App: React.FC = () => {
               </button>
             )}
 
-            <button
-              className="primary"
-              onClick={() => setIsImportModalOpen(true)}
-            >
-              <Plus size={17} />
-              <span>Import files</span>
-            </button>
+            {section !== "settings" && (
+              <button
+                className="primary"
+                onClick={() => setIsImportModalOpen(true)}
+              >
+                <Plus size={17} />
+                <span>Import files</span>
+              </button>
+            )}
           </div>
         </header>
+
 
         {/* Section View Routing */}
         {section === "collections" && !selectedCollectionId ? (
@@ -714,13 +717,18 @@ export const App: React.FC = () => {
           onClose={() => setAiTargetDesign(null)}
           onApplied={() => {
             void reloadData();
+          }}
+          onSelectDesign={(d) => {
+            setSelectedDesign(d);
             setAiTargetDesign(null);
           }}
+
           onOpenSettings={() => {
             setAiTargetDesign(null);
             setSection("settings");
           }}
         />
+
       )}
     </main>
   );

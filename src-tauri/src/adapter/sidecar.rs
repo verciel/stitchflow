@@ -205,4 +205,54 @@ impl EmbroideryFormatAdapter for PythonSidecarAdapter {
         self.run_engine(&["export", &src_str, &dst_str, target_format])?;
         Ok(())
     }
+
+    fn digitize(
+        &self,
+        src_image: &Path,
+        dst_emb: &Path,
+        target_format: &str,
+        width_mm: f64,
+        height_mm: f64,
+        out_preview_png: Option<&Path>,
+    ) -> Result<EmbroideryMetadata, AdapterError> {
+        let src_str = src_image.to_string_lossy();
+        let dst_str = dst_emb.to_string_lossy();
+        let w_str = format!("{width_mm:.1}");
+        let h_str = format!("{height_mm:.1}");
+        let prev_str = out_preview_png.map(|p| p.to_string_lossy().to_string()).unwrap_or_default();
+
+        let out = if prev_str.is_empty() {
+            self.run_engine(&["digitize", &src_str, &dst_str, target_format, &w_str, &h_str])?
+        } else {
+            self.run_engine(&["digitize", &src_str, &dst_str, target_format, &w_str, &h_str, &prev_str])?
+        };
+
+        serde_json::from_str::<EmbroideryMetadata>(&out).map_err(|e| {
+            AdapterError::Serialization(format!("Failed to deserialize metadata from digitize: {e} | raw: {out}"))
+        })
+    }
+
+    fn edit(
+        &self,
+        src_emb: &Path,
+        dst_emb: &Path,
+        operations_json: &str,
+        out_preview_png: Option<&Path>,
+    ) -> Result<EmbroideryMetadata, AdapterError> {
+        let src_str = src_emb.to_string_lossy();
+        let dst_str = dst_emb.to_string_lossy();
+        let prev_str = out_preview_png.map(|p| p.to_string_lossy().to_string()).unwrap_or_default();
+
+        let out = if prev_str.is_empty() {
+            self.run_engine(&["edit", &src_str, &dst_str, operations_json])?
+        } else {
+            self.run_engine(&["edit", &src_str, &dst_str, operations_json, &prev_str])?
+        };
+
+        serde_json::from_str::<EmbroideryMetadata>(&out).map_err(|e| {
+            AdapterError::Serialization(format!("Failed to deserialize metadata from edit: {e} | raw: {out}"))
+        })
+    }
 }
+
+

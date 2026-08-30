@@ -519,9 +519,9 @@ pub fn reveal_in_folder(path: String) -> Result<(), String> {
 
     #[cfg(target_os = "windows")]
     {
+        let win_path = path.replace('/', "\\");
         Command::new("explorer.exe")
-            .arg("/select,")
-            .arg(path)
+            .arg(format!("/select,{win_path}"))
             .spawn()
             .map_err(|e| format!("Failed to open file explorer: {e}"))?;
     }
@@ -535,3 +535,81 @@ pub fn reveal_in_folder(path: String) -> Result<(), String> {
 
     Ok(())
 }
+
+
+#[tauri::command]
+pub fn find_similar_designs(
+    state: State<AppState>,
+    design_id: String,
+    limit: Option<usize>,
+) -> Result<Vec<Design>, String> {
+    let db = state.db.lock().map_err(|_| "Database is busy")?;
+
+    // 1. Fetch reference design
+    let (ref_id, title, format, width, height, stitches, ai_category): (
+        String,
+        String,
+        String,
+        Option<f64>,
+        Option<f64>,
+        Option<i64>,
+        Option<String>,
+    ) = db
+        .query_row(
+            "SELECT d.id, d.title, d.format, d.width_mm, d.height_mm, d.stitches, d.ai_category
+             FROM designs d WHERE d.id = ?1",
+            params![design_id],
+            |r| Ok((
+                r.get(0)?,
+                r.get(1)?,
+                r.get(2)?,
+                r.get(3).ok(),
+                r.get(4).ok(),
+                r.get(5).ok(),
+                r.get(6).ok(),
+            )),
+        )
+        .map_err(|e| format!("Design not found: {e}"))?;
+
+    // Extract prefix (e.g. WF028 -> WF)
+    let prefix = title
+        .chars()
+        .take_while(|c| c.is_alphabetic())
+        .collect::<String>();
+
+    let max_results = limit.unwrap_or(8);
+
+    let query_sql = format!(
+        "{SELECT_DESIGN_BASE} WHERE d.id != ?1 AND d.status = 'active' ORDER BY 
+            (CASE WHEN ?2 != '' AND d.title LIKE ?2 || '%' THEN 12 ELSE 0 END) +
+            (CASE WHEN d.format = ?3 THEN 4 ELSE 0 END) +
+            (CASE WHEN d.ai_category = ?4 AND ?4 IS NOT NULL THEN 5 ELSE 0 END) +
+            (CASE WHEN ABS(COALESCE(d.stitches, 0) - ?5) < 1000 THEN 4 ELSE 0 END) +
+            (CASE WHEN ABS(COALESCE(d.width_mm, 0) - ?6) < 15.0 AND ABS(COALESCE(d.height_mm, 0) - ?7) < 15.0 THEN 5 ELSE 0 END)
+         DESC LIMIT ?8"
+    );
+
+    let mut stmt = db.prepare(&query_sql).map_err(|e| e.to_string())?;
+
+    let rows = stmt.query_map(
+        params![
+            ref_id,
+            prefix,
+            format,
+            ai_category,
+            stitches.unwrap_or(0),
+            width.unwrap_or(0.0),
+            height.unwrap_or(0.0),
+            max_results as i64
+        ],
+        |r| row_to_design(r),
+    ).map_err(|e| e.to_string())?;
+
+    let mut results = Vec::new();
+    for item in rows.flatten() {
+        results.push(item);
+    }
+
+    Ok(results)
+}
+

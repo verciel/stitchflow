@@ -54,13 +54,14 @@ export const CollectionsView: React.FC<CollectionsViewProps> = ({
 
   return (
     <div className="collections-container">
-      <div className="mb-4">
-        <p className="subtle">
+      <div className="collections-header-desc" style={{ marginBottom: "28px" }}>
+        <p className="subtle" style={{ margin: 0, fontSize: "14px", lineHeight: "1.6" }}>
           Group related embroidery designs into themed folders and seasonal series.
         </p>
       </div>
 
       <div className="collections-grid">
+
 
         {collections.map((col) => (
           <article

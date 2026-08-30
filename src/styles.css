@@ -1413,12 +1413,18 @@ button {
 }
 
 /* Collections & Jobs Views */
-.collections-grid,
+.collections-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  gap: 24px;
+}
+
 .jobs-list-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 18px;
+  gap: 20px;
 }
+
 
 .collection-card,
 .job-card-rich {

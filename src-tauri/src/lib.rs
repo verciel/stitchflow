@@ -75,6 +75,7 @@ pub fn run() {
             empty_recycle_bin,
             export_design,
             reveal_in_folder,
+            find_similar_designs,
             // Imports
             import_files,
             // Tags
@@ -116,11 +117,18 @@ pub fn run() {
             get_ai_config,
             save_ai_config,
             test_ai_connection,
+            test_hf_connection,
             analyze_designs,
             apply_ai_suggestion,
             natural_language_search,
             ask_ai_custom,
+            generate_ai_design_image,
+            digitize_and_import_design,
+            propose_ai_edit,
+            apply_proposed_edit,
+
             // Utility
+
             read_image_data,
         ])
         .run(tauri::generate_context!())

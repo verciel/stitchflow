@@ -162,3 +162,23 @@ When a user initiates AI analysis:
    Batch import operations run asynchronously in dedicated Tokio background tasks, reporting progress incrementally to the frontend.
 3. **Subprocess Isolation**:
    The Python embroidery engine is executed as an isolated child process, guaranteeing that corrupted embroidery binary files cannot crash the main desktop application.
+
+---
+
+## 6. AI Vector Patch Generator & Auto-Digitization Pipeline
+
+### 6.1 Architectural Principle
+> *"The embroidery digitization pipeline remains 100% offline and free by default; AI image generation may optionally use an external API."*
+
+### 6.2 Prompt Synthesis & Style Presets
+When generating new design artwork, Stitchflow synthesizes prompts using one of six curated physical embroidery presets:
+- `patch`: 3-Color Merrowed Patch (bold satin borders, flat solid color fills, zero gradients)
+- `silhouette`: Monochrome Stencil (100% solid single-color cutout on white background)
+- `line_art`: Redwork Line Art (single continuous running stitch outline)
+- `crest`: Varsity Crest & Heraldic Emblem (symmetrical shield, laurels, ribbon banners)
+- `floral`: Stylized Folk Botanical (hard color separation, satin petals)
+- `applique`: Flat Appliqué Motif (large simplified geometric/cartoon shapes for tackle twill)
+
+### 6.3 Safe Format Writer Fallback (`safe_write_pattern`)
+While `pyembroidery` can read over 40 formats, it only contains binary writers for 9 formats (`.PES`, `.DST`, `.JEF`, `.EXP`, `.VP3`, `.XXX`, `.PEC`, `.U01`, `.TBF`). When an operation targets a read-only format (e.g. `.HUS`, `.SEW`, `.PCS`), the engine automatically routes the write operation through `safe_write_pattern`, creating a valid `.PES` or `.DST` file without raising `IOError: No supported writer found.`.
+

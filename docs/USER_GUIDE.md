@@ -99,17 +99,34 @@ To convert a design to another machine format (e.g. `PES` to `DST` for a commerc
 
 ---
 
-## 6. AI Vision Assistant
+## 6. AI Embroidery Studio
 
-Stitchflow includes an optional **Vision AI Assistant** that analyzes rendered stitch previews to auto-tag and categorize your library:
+Stitchflow includes an integrated **AI Embroidery Studio** with two core tools:
 
-1. Click **"Analyze with AI"** on any design.
-2. The **AI Review Modal** displays:
-   - Proposed **Category** (e.g. *Floral & Botanical*)
-   - Proposed **Subject** & **Style**
-   - Generated **Tags** (e.g. `#rose`, `#satin-stitch`, `#botanical`)
-   - Natural language description of the stitch work
-3. Click **"Apply to Design"** to save the metadata to your catalog.
+### 6.1 Catalog Tagging & Vision Analysis
+Analyzes technical stitch patterns and rendered previews to automatically classify and index your library:
+1. In the Inspector Drawer, click **"✨ AI Studio"** (or select the **✨ Catalog Tagging** tab).
+2. The model proposes:
+   - **Category** (e.g. *Floral & Botanical*, *Mascot & Sports*, *Monogram*)
+   - **Subject & Style**
+   - **Search Tags** (e.g. `#witch`, `#halloween`, `#satin-stitch`)
+   - Natural language description for semantic natural language search.
+3. Click **"Apply to Design"** to save suggestions to the database.
+
+### 6.2 Create New Design (Vector Patch Generator & Auto-Digitizer)
+Generate matching companion designs or custom vector patches from scratch and auto-digitize them into machine stitches:
+1. Open **AI Studio** and select the **🎨 Create New Design** tab.
+2. Select an **Embroidery Style Preset**:
+   - **🎨 3-Color Patch**: Bold satin borders and flat solid color fills (ideal for patches & badges).
+   - **🖤 Silhouette**: 100% solid black stencil cutouts with zero gradients or interior shading (100% stitch-ready).
+   - **🖋️ Line Art**: Single continuous running stitch / redwork outline with minimal trims.
+   - **🛡️ Varsity Crest**: Symmetrical collegiate shield emblems with laurel wreaths and ribbon banners.
+   - **🌸 Folk Floral**: Stylized botanical petals with distinct color breaks.
+   - **🧸 Appliqué**: Large simplified shapes for tackle twill and fabric backing.
+3. Enter your motif prompt (e.g. *`witch flying on a broom`*, *`garden sunflower`*, *`flying eagle`*) and click **"Create Design"**.
+4. Configure your desired target format (`PES`, `DST`, `JEF`, `VP3`, `EXP`), width (mm), and height (mm).
+5. Click **"✨ Save Design to Library"** — the built-in digitizer will calculate stitches and import the binary embroidery file directly into your catalog.
+
 
 ---
 

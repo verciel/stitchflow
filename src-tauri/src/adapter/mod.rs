@@ -45,4 +45,22 @@ pub trait EmbroideryFormatAdapter: Send + Sync {
     fn inspect(&self, path: &Path) -> Result<EmbroideryMetadata, AdapterError>;
     fn render_preview(&self, path: &Path, out_png: &Path, out_svg: Option<&Path>) -> Result<(), AdapterError>;
     fn export(&self, src_path: &Path, dst_path: &Path, target_format: &str) -> Result<(), AdapterError>;
+    fn digitize(
+        &self,
+        src_image: &Path,
+        dst_emb: &Path,
+        target_format: &str,
+        width_mm: f64,
+        height_mm: f64,
+        out_preview_png: Option<&Path>,
+    ) -> Result<EmbroideryMetadata, AdapterError>;
+    fn edit(
+        &self,
+        src_emb: &Path,
+        dst_emb: &Path,
+        operations_json: &str,
+        out_preview_png: Option<&Path>,
+    ) -> Result<EmbroideryMetadata, AdapterError>;
 }
+
+

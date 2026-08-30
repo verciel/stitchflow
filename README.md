@@ -16,9 +16,10 @@ Built with **Tauri 2**, **React 18 + TypeScript**, **Rust**, **SQLite (with FTS5
 - **Deep Metadata Inspection**: Deterministic extraction of dimensions (mm), stitch counts, color stops, thread brand palettes, jump stitches, trims, and file sizes.
 - **10 Major Format Engines**: Full inspection, rendering, and export support for `DST`, `PES`, `JEF`, `VP3`, `EXP`, `HUS`, `XXX`, `SEW`, `PCS`, and `PEC`.
 - **Format Conversion & Export**: One-click cross-format conversion (e.g. `PES` → `DST`, `JEF`, `VP3`, `EXP`, `XXX`, `PEC`).
-- **Batch Import & Deduplication**: Multi-file and recursive folder staging with SHA-256 duplicate policies (`Skip`, `Replace Revision`, or `Keep Both`).
-- **Vision-Capable AI Analysis**: Opt-in analysis using OpenAI-compatible vision models (OpenAI, Ollama, LM Studio, OpenRouter) to automatically classify categories, subjects, styles, and tags with a side-by-side review modal.
-- **Ink/Stitch Handoff**: One-click direct launch into Inkscape with the Ink/Stitch extension for stitch simulation and vector editing.
+- **Vision-Capable AI Tagging**: Opt-in analysis using vision models to automatically classify categories, subjects, styles, and tags with a side-by-side review modal.
+- **AI Vector Patch Generator & Auto-Digitizer**: Create stitch-ready patches and companion motifs using 6 curated physical embroidery presets (`3-Color Patch`, `Silhouette`, `Line Art`, `Varsity Crest`, `Folk Floral`, `Appliqué`) with automatic offline stitch calculation and direct library import.
+- **Ink/Stitch Handoff**: One-click direct launch into Inkscape with the Ink/Stitch extension for stitch simulation, pull compensation tuning, and vector CAD editing.
+
 - **Collections & Production Jobs**: Themed organizational series and lightweight job batch containers with garment notes and customer proof links.
 - **Safe 2-Stage Quarantine**: Soft-delete quarantine area with one-click restoration or permanent disk purge.
 - **Portable Backups**: Portable `.zip` backup generation with SHA-256 checksummed `manifest.json` and isolated validation/restore.

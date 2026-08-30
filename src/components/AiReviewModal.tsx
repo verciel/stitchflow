@@ -1,28 +1,42 @@
 import React, { useEffect, useState } from "react";
 import {
   AlertCircle,
+  ArrowRight,
   Bot,
   Check,
   CheckCircle2,
+  Cpu,
+  Download,
   HelpCircle,
-  MessageSquare,
+  Image as ImageIcon,
+  Layers,
+  Palette,
   RefreshCw,
   Send,
   ShieldCheck,
   Sparkles,
   Tag as TagIcon,
+  Wand2,
   X,
 } from "lucide-react";
+
 import {
   analyzeDesigns,
   applyAiSuggestion,
-  askAiCustom,
+  digitizeAndImportDesign,
   formatError,
+  generateAiDesignImage,
   getAiConfig,
   saveAiConfig,
 } from "../lib";
-import type { AiConfig, AiSuggestion, Design } from "../types";
+import type {
+  AiConfig,
+  AiSuggestion,
+  Design,
+  GeneratedArtworkResult,
+} from "../types";
 import { DesignImage } from "./DesignImage";
+
 
 interface AiReviewModalProps {
   design: Design | null;
@@ -30,8 +44,10 @@ interface AiReviewModalProps {
   isOpen: boolean;
   onClose: () => void;
   onApplied: () => void;
+  onSelectDesign?: (design: Design) => void;
   onOpenSettings?: () => void;
 }
+
 
 export const AiReviewModal: React.FC<AiReviewModalProps> = ({
   design,
@@ -39,28 +55,45 @@ export const AiReviewModal: React.FC<AiReviewModalProps> = ({
   isOpen,
   onClose,
   onApplied,
+  onSelectDesign,
   onOpenSettings,
 }) => {
-  const [activeTab, setActiveTab] = useState<"catalog" | "chat">("catalog");
+  const [activeTab, setActiveTab] = useState<"catalog" | "generator">("catalog");
   const [currentConfig, setCurrentConfig] = useState<AiConfig>(initialConfig);
   const [analyzing, setAnalyzing] = useState(false);
   const [suggestion, setSuggestion] = useState<AiSuggestion | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [appliedNotice, setAppliedNotice] = useState(false);
 
-  // Custom Q&A State
-  const [customQuestion, setCustomQuestion] = useState("");
-  const [askingAi, setAskingAi] = useState(false);
-  const [aiAnswer, setAiAnswer] = useState<string | null>(null);
+  // AI Generator & Auto-Digitizer State
+  const [genPrompt, setGenPrompt] = useState("");
+  const [selectedStyle, setSelectedStyle] = useState<string>("patch");
+  const [generatingImg, setGeneratingImg] = useState(false);
+  const [generatedResult, setGeneratedResult] = useState<GeneratedArtworkResult | null>(null);
+  
+  // Digitizing Options
+  const [digitizeTitle, setDigitizeTitle] = useState("");
+  const [digitizeFormat, setDigitizeFormat] = useState("PES");
+  const [digitizeWidth, setDigitizeWidth] = useState(50);
+  const [digitizeHeight, setDigitizeHeight] = useState(50);
+  const [digitizing, setDigitizing] = useState(false);
+  const [digitizedDesign, setDigitizedDesign] = useState<Design | null>(null);
 
   // Always refresh latest AI config from database when modal opens
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && design) {
       setError(null);
       setSuggestion(null);
       setAppliedNotice(false);
-      setAiAnswer(null);
-      setCustomQuestion("");
+      setGeneratedResult(null);
+      setDigitizedDesign(null);
+      setGenPrompt("");
+      setSelectedStyle("patch");
+      setDigitizeTitle(`${design.title} Companion`);
+      setDigitizeFormat(design.format || "PES");
+      setDigitizeWidth(Math.round(design.widthMm || 50));
+      setDigitizeHeight(Math.round(design.heightMm || 50));
+
       void getAiConfig().then((conf) => {
         if (conf.apiKey.trim() || !conf.endpoint.includes("api.openai.com")) {
           if (!conf.enabled) {
@@ -73,7 +106,8 @@ export const AiReviewModal: React.FC<AiReviewModalProps> = ({
         setCurrentConfig(conf);
       });
     }
-  }, [isOpen]);
+  }, [isOpen, design]);
+
 
   if (!isOpen || !design) return null;
 
@@ -88,9 +122,11 @@ export const AiReviewModal: React.FC<AiReviewModalProps> = ({
   };
 
   const handleStartAnalysis = async () => {
+    if (!design) return;
     try {
       setAnalyzing(true);
       setError(null);
+      setAppliedNotice(false);
 
       if (!currentConfig.enabled) {
         await handleEnableAi();
@@ -100,37 +136,21 @@ export const AiReviewModal: React.FC<AiReviewModalProps> = ({
       if (results.length > 0) {
         setSuggestion(results[0]);
       } else {
-        setError("AI returned an empty suggestion.");
+        setError("Analysis complete, but no new tags or metadata were identified for this design.");
       }
     } catch (err) {
-      setError(formatError(err, "AI analysis request failed"));
+      setError(formatError(err, "Analysis failed"));
     } finally {
       setAnalyzing(false);
     }
   };
 
-  const handleAskQuestion = async (promptText?: string) => {
-    const q = (promptText || customQuestion).trim();
-    if (!q) return;
+  const handleApply = async (apply: boolean) => {
+    if (!suggestion || !design) return;
     try {
-      setAskingAi(true);
       setError(null);
-      if (promptText) setCustomQuestion(promptText);
-
-      const ans = await askAiCustom(design.id, q);
-      setAiAnswer(ans);
-    } catch (err) {
-      setError(formatError(err, "Failed to get AI advice"));
-    } finally {
-      setAskingAi(false);
-    }
-  };
-
-  const handleApply = async (accepted: boolean) => {
-    if (!suggestion) return;
-    try {
-      await applyAiSuggestion(suggestion.id, accepted);
-      if (accepted) {
+      await applyAiSuggestion(suggestion.id, apply);
+      if (apply) {
         setAppliedNotice(true);
         setTimeout(() => {
           onApplied();
@@ -145,17 +165,61 @@ export const AiReviewModal: React.FC<AiReviewModalProps> = ({
     }
   };
 
+  // Generate Visual Artwork via Diffusion Engine with Selected Style
+  const handleGenerateArtwork = async (promptOverride?: string) => {
+    const p = (promptOverride || genPrompt).trim();
+    try {
+      setGeneratingImg(true);
+      setError(null);
+      setDigitizedDesign(null);
+      if (promptOverride) setGenPrompt(promptOverride);
+
+      const res = await generateAiDesignImage(design.id, p || undefined, selectedStyle);
+      setGeneratedResult(res);
+    } catch (err) {
+      setError(formatError(err, "Artwork generation failed"));
+    } finally {
+      setGeneratingImg(false);
+    }
+  };
+
+  // Auto-Digitize Generated PNG into Machine Embroidery File
+  const handleDigitizeAndSave = async () => {
+    if (!generatedResult) return;
+    try {
+      setDigitizing(true);
+      setError(null);
+
+      const newDesign = await digitizeAndImportDesign({
+        sourceImagePath: generatedResult.tempPath,
+        title: digitizeTitle.trim() || `${design.title}_AI_Digitized`,
+        targetFormat: digitizeFormat,
+        widthMm: digitizeWidth,
+        heightMm: digitizeHeight,
+        tags: ["ai-generated", "auto-digitized", design.format.toLowerCase()],
+        category: design.aiCategory || "AI Generated",
+      });
+
+      setDigitizedDesign(newDesign);
+      onApplied();
+    } catch (err) {
+      setError(formatError(err, "Auto-digitizing failed"));
+    } finally {
+      setDigitizing(false);
+    }
+  };
+
   const isOpenAiMissingKey =
     currentConfig.endpoint.includes("api.openai.com") && !currentConfig.apiKey.trim();
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal ai-review-modal" style={{ maxWidth: "740px" }} onClick={(e) => e.stopPropagation()}>
+      <div className="modal ai-review-modal" style={{ maxWidth: "800px" }} onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <div className="modal-title-group">
             <Sparkles size={22} className="text-accent" />
             <div>
-              <h2>AI Embroidery Assistant</h2>
+              <h2>AI Embroidery Studio</h2>
               <span className="subtle text-xs">
                 Target: {design.title} ({design.format} · {design.stitches?.toLocaleString() ?? 0} stitches)
               </span>
@@ -165,7 +229,6 @@ export const AiReviewModal: React.FC<AiReviewModalProps> = ({
             <X size={18} />
           </button>
         </div>
-
         {/* Modal Tab Switcher */}
         <div className="modal-tabs" style={{ display: "flex", gap: "8px", padding: "12px 24px 0", borderBottom: "1px solid var(--border-color)" }}>
           <button
@@ -174,15 +237,15 @@ export const AiReviewModal: React.FC<AiReviewModalProps> = ({
             style={{ padding: "8px 16px", borderBottom: activeTab === "catalog" ? "2px solid var(--accent)" : "none", background: "none", cursor: "pointer" }}
             onClick={() => setActiveTab("catalog")}
           >
-            ✨ Catalog Tagging & Vision
+            ✨ Catalog Tagging
           </button>
           <button
             type="button"
-            className={`tab-btn ${activeTab === "chat" ? "active font-bold text-accent" : "subtle"}`}
-            style={{ padding: "8px 16px", borderBottom: activeTab === "chat" ? "2px solid var(--accent)" : "none", background: "none", cursor: "pointer" }}
-            onClick={() => setActiveTab("chat")}
+            className={`tab-btn ${activeTab === "generator" ? "active font-bold text-accent" : "subtle"}`}
+            style={{ padding: "8px 16px", borderBottom: activeTab === "generator" ? "2px solid var(--accent)" : "none", background: "none", cursor: "pointer" }}
+            onClick={() => setActiveTab("generator")}
           >
-            💬 Production Advice & Changes
+            🎨 Create New Design
           </button>
         </div>
 
@@ -195,6 +258,8 @@ export const AiReviewModal: React.FC<AiReviewModalProps> = ({
           )}
 
           {activeTab === "catalog" ? (
+
+
             /* Catalog Tagging & Vision Tab */
             appliedNotice ? (
               <div className="ai-applied-success">
@@ -282,9 +347,9 @@ export const AiReviewModal: React.FC<AiReviewModalProps> = ({
             ) : analyzing ? (
               <div className="ai-analyzing-box">
                 <RefreshCw size={36} className="spin text-accent" />
-                <h3>Analyzing stitch pattern with AI…</h3>
+                <h3>Analyzing stitch pattern…</h3>
                 <p className="subtle text-xs">
-                  Generating high-fidelity catalog classifications, proposed tags, and thread color insights.
+                  Generating catalog classifications, proposed tags, and thread color insights.
                 </p>
               </div>
             ) : (
@@ -358,86 +423,263 @@ export const AiReviewModal: React.FC<AiReviewModalProps> = ({
               </div>
             )
           ) : (
-            /* Interactive Q&A / Production Advice Tab */
-            <div className="ai-chat-panel">
-              <div className="chat-prompt-quick-chips" style={{ marginBottom: "16px" }}>
-                <span className="text-xs font-bold text-subtle" style={{ display: "block", marginBottom: "8px" }}>
-                  💡 QUICK PRODUCTION PROMPTS:
-                </span>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
-                  {[
-                    "Recommended backing & needles for pique polo shirts?",
-                    "Can this design be adapted for baseball caps / curved hoops?",
-                    "How to recolor this design for black/dark garments?",
-                    "Suggest matching companion design ideas for this theme",
-                  ].map((chip) => (
-                    <button
-                      key={chip}
-                      type="button"
-                      className="secondary compact-btn"
-                      style={{ fontSize: "11px", padding: "4px 8px" }}
-                      onClick={() => handleAskQuestion(chip)}
-                    >
-                      {chip}
-                    </button>
-                  ))}
+            /* AI Design Generator Tab */
+            <div className="ai-generator-panel">
+              <div className="generator-intro-card" style={{ background: "var(--card-bg, #f8fafc)", border: "1px solid var(--border-color, #e2e8f0)", borderRadius: "8px", padding: "14px 16px", marginBottom: "16px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", color: "var(--accent)", marginBottom: "4px" }}>
+                  <Wand2 size={18} />
+                  <b>Create Matching Design</b>
                 </div>
+                <p className="subtle text-xs" style={{ margin: 0 }}>
+                  Create new matching designs for <b>{design.title}</b> and save them directly to your library.
+                </p>
               </div>
 
-              <div className="chat-input-row" style={{ display: "flex", gap: "8px", marginBottom: "16px" }}>
+              {/* Custom Prompt Input */}
+              <div className="gen-input-row" style={{ display: "flex", gap: "8px", marginBottom: "14px" }}>
                 <input
                   type="text"
-                  placeholder="Ask anything about modifying this design, fabric recipes, thread matching…"
-                  value={customQuestion}
-                  onChange={(e) => setCustomQuestion(e.target.value)}
+                  placeholder="Describe what to create (e.g. 'witch flying on broom', 'garden sunflower', 'flying eagle')…"
+                  value={genPrompt}
+                  onChange={(e) => setGenPrompt(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === "Enter" && !askingAi) handleAskQuestion();
+                    if (e.key === "Enter" && genPrompt.trim() && !generatingImg) handleGenerateArtwork();
                   }}
+                  disabled={generatingImg || digitizing}
                   style={{ flex: 1 }}
                 />
                 <button
                   type="button"
                   className="primary"
-                  onClick={() => handleAskQuestion()}
-                  disabled={askingAi || !customQuestion.trim() || isOpenAiMissingKey}
+                  onClick={() => handleGenerateArtwork()}
+                  disabled={!genPrompt.trim() || generatingImg || digitizing}
                 >
-                  {askingAi ? <RefreshCw size={16} className="spin" /> : <Send size={16} />}
-                  <span>Ask</span>
+                  {generatingImg ? <RefreshCw size={16} className="spin" /> : <Wand2 size={16} />}
+                  <span>Create Design</span>
                 </button>
               </div>
 
-              {askingAi && (
-                <div className="ai-analyzing-box" style={{ padding: "24px" }}>
-                  <RefreshCw size={28} className="spin text-accent" />
-                  <p className="subtle text-xs mt-2">Consulting commercial embroidery digitizing advisor…</p>
+              {/* Embroidery Style Mode Selector */}
+              <div style={{ marginBottom: "16px" }}>
+                <label className="text-xs font-bold text-subtle" style={{ display: "block", marginBottom: "6px" }}>
+                  EMBROIDERY STYLE PRESET
+                </label>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "6px" }}>
+                  {[
+                    { id: "patch", label: "🎨 3-Color Patch", desc: "Bold black borders & flat solid fills" },
+                    { id: "silhouette", label: "🖤 Silhouette", desc: "Solid black cutout, zero gradients" },
+                    { id: "line_art", label: "🖋️ Line Art", desc: "Single continuous running stitch" },
+                    { id: "crest", label: "🛡️ Varsity Crest", desc: "Collegiate shield & laurel emblem" },
+                    { id: "floral", label: "🌸 Folk Floral", desc: "Stylized botanical petals" },
+                    { id: "applique", label: "🧸 Appliqué", desc: "Large simplified shapes" },
+                  ].map((st) => (
+                    <button
+                      key={st.id}
+                      type="button"
+                      className={`compact-btn ${selectedStyle === st.id ? "primary" : "secondary"}`}
+                      style={{
+                        textAlign: "left",
+                        padding: "6px 10px",
+                        display: "flex",
+                        flexDirection: "column",
+                        border: selectedStyle === st.id ? "2px solid var(--accent)" : "1px solid var(--border-color)",
+                      }}
+                      onClick={() => setSelectedStyle(st.id)}
+                      disabled={generatingImg || digitizing}
+                    >
+                      <span style={{ fontWeight: "bold", fontSize: "12px" }}>{st.label}</span>
+                      <span style={{ fontSize: "10px", opacity: 0.8 }}>{st.desc}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+
+
+              {generatingImg && (
+                <div className="ai-analyzing-box" style={{ padding: "30px" }}>
+                  <RefreshCw size={32} className="spin text-accent" />
+                  <h4 style={{ margin: "10px 0 4px" }}>Creating your design…</h4>
+                  <p className="subtle text-xs">Designing embroidery motif and preparing stitches.</p>
                 </div>
               )}
 
-              {aiAnswer && !askingAi && (
+              {/* Generated Artwork & Digitizing Controls */}
+              {generatedResult && !generatingImg && (
                 <div
-                  className="ai-answer-card"
+                  className="generated-artwork-card"
                   style={{
-                    background: "var(--card-bg, #f8fafc)",
+                    background: "var(--card-bg, #ffffff)",
                     border: "1px solid var(--border-color, #e2e8f0)",
                     borderRadius: "8px",
                     padding: "16px",
-                    lineHeight: "1.6",
-                    fontSize: "13px",
-                    whiteSpace: "pre-wrap",
+                    marginTop: "16px",
                   }}
                 >
-                  <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "8px", color: "var(--accent)" }}>
-                    <Bot size={18} />
-                    <b>Digitizing & Production Advice:</b>
+                  <div style={{ display: "grid", gridTemplateColumns: "180px 1fr", gap: "16px" }}>
+                    {/* Artwork Preview Image */}
+                    <div style={{ textAlign: "center" }}>
+                      <div
+                        style={{
+                          width: "180px",
+                          height: "180px",
+                          background: "#ffffff",
+                          border: "1px solid var(--border-color, #cbd5e1)",
+                          borderRadius: "8px",
+                          overflow: "hidden",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      >
+                        <img
+                          src={generatedResult.imageData}
+                          alt="Generated Design Preview"
+                          style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }}
+                        />
+                      </div>
+                      <span className="subtle text-xs mt-2" style={{ display: "block" }}>
+                        Design Preview
+                      </span>
+                    </div>
+
+                    {/* Auto-Digitizing Configuration Form */}
+                    <div className="digitize-controls" style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                      <div>
+                        <label className="text-xs font-bold text-subtle" style={{ display: "block", marginBottom: "4px" }}>
+                          DESIGN TITLE
+                        </label>
+                        <input
+                          type="text"
+                          value={digitizeTitle}
+                          onChange={(e) => setDigitizeTitle(e.target.value)}
+                          disabled={digitizing}
+                          style={{ width: "100%", padding: "6px 10px", fontSize: "13px" }}
+                        />
+                      </div>
+
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "8px" }}>
+                        <div>
+                          <label className="text-xs font-bold text-subtle" style={{ display: "block", marginBottom: "4px" }}>
+                            FORMAT
+                          </label>
+                          <select
+                            value={digitizeFormat}
+                            onChange={(e) => setDigitizeFormat(e.target.value)}
+                            disabled={digitizing}
+                            style={{ width: "100%", padding: "6px 8px", fontSize: "13px" }}
+                          >
+                            <option value="PES">PES (Brother)</option>
+                            <option value="DST">DST (Tajima)</option>
+                            <option value="JEF">JEF (Janome)</option>
+                            <option value="VP3">VP3 (Pfaff/Husqvarna)</option>
+                            <option value="EXP">EXP (Melco/Bernina)</option>
+                            <option value="HUS">HUS (Husqvarna)</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="text-xs font-bold text-subtle" style={{ display: "block", marginBottom: "4px" }}>
+                            WIDTH (MM)
+                          </label>
+                          <input
+                            type="number"
+                            min="20"
+                            max="300"
+                            value={digitizeWidth}
+                            onChange={(e) => setDigitizeWidth(Number(e.target.value))}
+                            disabled={digitizing}
+                            style={{ width: "100%", padding: "6px 8px", fontSize: "13px" }}
+                          />
+                        </div>
+
+                        <div>
+                          <label className="text-xs font-bold text-subtle" style={{ display: "block", marginBottom: "4px" }}>
+                            HEIGHT (MM)
+                          </label>
+                          <input
+                            type="number"
+                            min="20"
+                            max="300"
+                            value={digitizeHeight}
+                            onChange={(e) => setDigitizeHeight(Number(e.target.value))}
+                            disabled={digitizing}
+                            style={{ width: "100%", padding: "6px 8px", fontSize: "13px" }}
+                          />
+                        </div>
+                      </div>
+
+                      <div style={{ marginTop: "10px" }}>
+                        <button
+                          type="button"
+                          className="primary"
+                          onClick={handleDigitizeAndSave}
+                          disabled={digitizing}
+                          style={{ width: "100%", padding: "10px 16px", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}
+                        >
+                          {digitizing ? (
+                            <>
+                              <RefreshCw size={16} className="spin" />
+                              <span>Calculating stitches & saving to library…</span>
+                            </>
+                          ) : (
+                            <>
+                              <Cpu size={16} />
+                              <span>✨ Save Design to Library</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+
+                      {digitizedDesign && (
+                        <div
+                          className="digitized-success-box"
+                          style={{
+                            background: "#f0fdf4",
+                            border: "1px solid #bbf7d0",
+                            borderRadius: "6px",
+                            padding: "10px 14px",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            marginTop: "8px",
+                          }}
+                        >
+                          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                            <CheckCircle2 size={20} className="text-green-600" />
+                            <div>
+                              <b style={{ color: "#166534", fontSize: "13px" }}>Design Added to Library!</b>
+                              <p style={{ margin: 0, fontSize: "11px", color: "#15803d" }}>
+                                {digitizedDesign.stitches?.toLocaleString()} stitches · {digitizedDesign.widthMm?.toFixed(1)} × {digitizedDesign.heightMm?.toFixed(1)} mm ({digitizedDesign.format})
+                              </p>
+                            </div>
+                          </div>
+                          {onSelectDesign && (
+                            <button
+                              type="button"
+                              className="secondary compact-btn"
+                              onClick={() => {
+                                onSelectDesign(digitizedDesign);
+                                onClose();
+                              }}
+                            >
+                              <span>View Design</span>
+                              <ArrowRight size={14} />
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  {aiAnswer}
                 </div>
               )}
             </div>
           )}
         </div>
 
+
         <div className="modal-footer">
+
           {activeTab === "catalog" ? (
             !suggestion && !analyzing && !appliedNotice ? (
               <>

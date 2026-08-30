@@ -115,6 +115,13 @@ export type AiConfig = {
   enabled: boolean;
 };
 
+export type GeneratedArtworkResult = {
+  imageData: string;
+  tempPath: string;
+  promptUsed: string;
+};
+
+
 export type InkstitchConfig = {
   inkscapePath: string;
   isConfigured: boolean;
@@ -146,3 +153,36 @@ export type BackupManifest = {
   artworkCount: number;
   fileChecksums: Record<string, string>;
 };
+
+export type EditOperation = {
+  op: string;
+  stopIndex?: number;
+  fromColor?: string;
+  toHex?: string;
+  description?: string;
+  factor?: number;
+  angleDeg?: number;
+  axis?: string;
+  maxDimensionMm?: number;
+};
+
+export type ProposedEditResult = {
+  designId: string;
+  instruction: string;
+  appliedOperations: EditOperation[];
+  densityWarning?: string;
+  tempEditedPath: string;
+  tempPreviewPath: string;
+  proposedPreviewData: string;
+  originalWidthMm: number;
+  originalHeightMm: number;
+  originalStitches: number;
+  originalColors: number;
+  proposedWidthMm: number;
+  proposedHeightMm: number;
+  proposedStitches: number;
+  proposedColors: number;
+  proposedThreads: ThreadInfo[];
+};
+
+
