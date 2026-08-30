@@ -354,7 +354,7 @@ export const App: React.FC = () => {
                 </h1>
                 <p className="subtle">
                   {section === "library"
-                    ? `${designs.length} designs indexed · Secure local storage`
+                    ? `${designs.length} designs indexed`
                     : section === "collections"
                     ? "Organize embroidery designs into themed series and seasonal folders."
                     : section === "jobs"
@@ -424,8 +424,9 @@ export const App: React.FC = () => {
             onRefresh={reloadData}
           />
         ) : section === "settings" ? (
-          <SettingsView />
+          <SettingsView onRefresh={reloadData} />
         ) : (
+
           /* Main Library / Collection Details / Job Details Grid View */
           <>
             {/* Filter and Search Bar */}

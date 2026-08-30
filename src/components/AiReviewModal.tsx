@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   AlertCircle,
   Bot,
@@ -10,7 +10,13 @@ import {
   Tag as TagIcon,
   X,
 } from "lucide-react";
-import { analyzeDesigns, applyAiSuggestion, formatError } from "../lib";
+import {
+  analyzeDesigns,
+  applyAiSuggestion,
+  formatError,
+  getAiConfig,
+  saveAiConfig,
+} from "../lib";
 import type { AiConfig, AiSuggestion, Design } from "../types";
 import { DesignImage } from "./DesignImage";
 
@@ -25,23 +31,61 @@ interface AiReviewModalProps {
 
 export const AiReviewModal: React.FC<AiReviewModalProps> = ({
   design,
-  aiConfig,
+  aiConfig: initialConfig,
   isOpen,
   onClose,
   onApplied,
   onOpenSettings,
 }) => {
+  const [currentConfig, setCurrentConfig] = useState<AiConfig>(initialConfig);
   const [analyzing, setAnalyzing] = useState(false);
   const [suggestion, setSuggestion] = useState<AiSuggestion | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [appliedNotice, setAppliedNotice] = useState(false);
 
+  // Always refresh latest AI config from database when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setError(null);
+      setSuggestion(null);
+      setAppliedNotice(false);
+      void getAiConfig().then((conf) => {
+        // If an API key is present or local endpoint is used, ensure it is treated as enabled
+        if (conf.apiKey.trim() || !conf.endpoint.includes("api.openai.com")) {
+          if (!conf.enabled) {
+            const enabledConf = { ...conf, enabled: true };
+            void saveAiConfig(enabledConf);
+            setCurrentConfig(enabledConf);
+            return;
+          }
+        }
+        setCurrentConfig(conf);
+      });
+    }
+  }, [isOpen]);
+
   if (!isOpen || !design) return null;
+
+  const handleEnableAi = async () => {
+    try {
+      const updated = { ...currentConfig, enabled: true };
+      await saveAiConfig(updated);
+      setCurrentConfig(updated);
+    } catch (err) {
+      setError(formatError(err, "Failed to enable AI"));
+    }
+  };
 
   const handleStartAnalysis = async () => {
     try {
       setAnalyzing(true);
       setError(null);
+
+      // Auto-enable if key is present
+      if (!currentConfig.enabled) {
+        await handleEnableAi();
+      }
+
       const results = await analyzeDesigns([design.id]);
       if (results.length > 0) {
         setSuggestion(results[0]);
@@ -74,6 +118,8 @@ export const AiReviewModal: React.FC<AiReviewModalProps> = ({
     }
   };
 
+  const isOpenAiMissingKey =
+    currentConfig.endpoint.includes("api.openai.com") && !currentConfig.apiKey.trim();
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -109,13 +155,32 @@ export const AiReviewModal: React.FC<AiReviewModalProps> = ({
             </div>
           ) : !suggestion && !analyzing ? (
             <div className="ai-consent-panel">
-              {!aiConfig.enabled && (
-                <div className="alert-banner alert-error">
+              {!currentConfig.enabled && !isOpenAiMissingKey && (
+                <div className="alert-banner alert-warning mb-3">
                   <AlertCircle size={18} />
                   <div style={{ flex: 1 }}>
-                    <b>AI is disabled in Settings</b>
+                    <b>AI Features are Paused</b>
                     <p className="text-xs mt-1">
-                      To analyze designs, enable AI in Settings and configure your endpoint.
+                      Click below to activate AI Vision analysis for this catalog.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    className="primary compact-btn"
+                    onClick={handleEnableAi}
+                  >
+                    Enable AI Now
+                  </button>
+                </div>
+              )}
+
+              {isOpenAiMissingKey && (
+                <div className="alert-banner alert-error mb-3">
+                  <AlertCircle size={18} />
+                  <div style={{ flex: 1 }}>
+                    <b>OpenAI API Key Missing</b>
+                    <p className="text-xs mt-1">
+                      Please enter your OpenAI API key in Settings, or configure a local server like Ollama or LM Studio.
                     </p>
                   </div>
                   {onOpenSettings && (
@@ -124,34 +189,11 @@ export const AiReviewModal: React.FC<AiReviewModalProps> = ({
                       className="secondary compact-btn"
                       onClick={onOpenSettings}
                     >
-                      Settings
+                      Open Settings
                     </button>
                   )}
                 </div>
               )}
-
-              {aiConfig.enabled &&
-                aiConfig.endpoint.includes("api.openai.com") &&
-                !aiConfig.apiKey.trim() && (
-                  <div className="alert-banner alert-error">
-                    <AlertCircle size={18} />
-                    <div style={{ flex: 1 }}>
-                      <b>OpenAI API Key Missing</b>
-                      <p className="text-xs mt-1">
-                        Please enter your OpenAI API key in Settings, or configure a local server like Ollama or LM Studio.
-                      </p>
-                    </div>
-                    {onOpenSettings && (
-                      <button
-                        type="button"
-                        className="secondary compact-btn"
-                        onClick={onOpenSettings}
-                      >
-                        Settings
-                      </button>
-                    )}
-                  </div>
-                )}
 
               <div className="ai-target-summary">
                 <DesignImage
@@ -164,7 +206,9 @@ export const AiReviewModal: React.FC<AiReviewModalProps> = ({
                   <p className="text-xs text-subtle">{design.filename}</p>
                   <div className="text-xs mt-2">
                     <span>{design.stitches?.toLocaleString() ?? 0} stitches</span> ·{" "}
-                    <span>{design.widthMm} × {design.heightMm} mm</span>
+                    <span>
+                      {design.widthMm?.toFixed(1) ?? "—"} × {design.heightMm?.toFixed(1) ?? "—"} mm
+                    </span>
                   </div>
                 </div>
               </div>
@@ -174,7 +218,7 @@ export const AiReviewModal: React.FC<AiReviewModalProps> = ({
                 <div>
                   <b>Privacy & Data Boundary</b>
                   <p className="text-xs text-subtle mt-1">
-                    Stitchflow will send <b>only</b> the rendered 2D preview image and approved extracted technical facts (stitches, dimensions, colors). The original embroidery file will <b>never</b> be uploaded.
+                    Stitchflow will send <b>only</b> the rendered 2D preview image and approved technical facts (stitches, dimensions, colors). The original embroidery file will <b>never</b> be uploaded.
                   </p>
                 </div>
               </div>
@@ -182,12 +226,11 @@ export const AiReviewModal: React.FC<AiReviewModalProps> = ({
               <div className="provider-spec-box">
                 <Bot size={16} />
                 <span>
-                  Provider: <b>{aiConfig.endpoint}</b> (Model: <b>{aiConfig.model}</b>)
+                  Provider: <b>{currentConfig.endpoint}</b> (Model: <b>{currentConfig.model}</b>)
                 </span>
               </div>
             </div>
           ) : analyzing ? (
-
             <div className="ai-analyzing-box">
               <RefreshCw size={36} className="spin text-accent" />
               <h3>Analyzing stitch pattern with Vision API…</h3>
@@ -276,11 +319,10 @@ export const AiReviewModal: React.FC<AiReviewModalProps> = ({
               <button
                 className="primary"
                 onClick={handleStartAnalysis}
-                disabled={!aiConfig.enabled || (aiConfig.endpoint.includes("api.openai.com") && !aiConfig.apiKey.trim())}
+                disabled={isOpenAiMissingKey}
               >
                 <Sparkles size={16} /> Analyze Design
               </button>
-
             </>
           )}
 

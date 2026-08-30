@@ -28,7 +28,11 @@ import {
 } from "../lib";
 import type { AiConfig, InkstitchConfig } from "../types";
 
-export const SettingsView: React.FC = () => {
+interface SettingsViewProps {
+  onRefresh?: () => void;
+}
+
+export const SettingsView: React.FC<SettingsViewProps> = ({ onRefresh }) => {
   // AI Settings State
   const [aiConfig, setAiConfigState] = useState<AiConfig>({
     endpoint: "https://api.openai.com/v1",
@@ -62,8 +66,16 @@ export const SettingsView: React.FC = () => {
     e.preventDefault();
     try {
       setSavingAi(true);
-      await saveAiConfig(aiConfig);
-      alert("AI Configuration saved successfully.");
+      const toSave = {
+        ...aiConfig,
+        enabled:
+          aiConfig.enabled ||
+          Boolean(aiConfig.apiKey.trim() || !aiConfig.endpoint.includes("api.openai.com")),
+      };
+      await saveAiConfig(toSave);
+      setAiConfigState(toSave);
+      onRefresh?.();
+      alert("AI Configuration saved and enabled successfully.");
     } catch (err) {
       alert(formatError(err, "Failed to save AI config"));
     } finally {
@@ -77,6 +89,13 @@ export const SettingsView: React.FC = () => {
       setAiTestResult(null);
       const res = await testAiConnection(aiConfig);
       setAiTestResult({ success: true, msg: res });
+      // Auto-save and enable on successful connection test
+      if (aiConfig.apiKey.trim() || !aiConfig.endpoint.includes("api.openai.com")) {
+        const toSave = { ...aiConfig, enabled: true };
+        await saveAiConfig(toSave);
+        setAiConfigState(toSave);
+        onRefresh?.();
+      }
     } catch (err) {
       setAiTestResult({
         success: false,
@@ -87,8 +106,8 @@ export const SettingsView: React.FC = () => {
     }
   };
 
-
   const handleBrowseInkscape = async () => {
+
     try {
       const file = await open({
         multiple: false,
