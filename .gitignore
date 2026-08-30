@@ -17,10 +17,9 @@ test.png
 test_preview.png
 test_preview.svg
 test_sample.dst
-test_sample.pes
-release-dist/
 src-tauri/embroidery-engine/build/
 src-tauri/embroidery-engine/dist/
 test_patch_witch.png
 scratch/
+
 

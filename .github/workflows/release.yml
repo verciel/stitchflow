@@ -49,10 +49,19 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
         with:
+          name: "Stitchflow ${{ github.ref_name }}"
+          body: |
+            ## Stitchflow Desktop Application (${{ github.ref_name }})
+            
+            - Complete embroidery management, multi-format inspection, and format conversion.
+            - AI Studio with Vision Catalog Tagging & Vector Patch Generator (6 Style Presets).
+            - Offline embroidery digitization engine and Ink/Stitch CAD workflow integration.
           files: |
             src-tauri/target/release/bundle/msi/*.msi
             src-tauri/target/release/bundle/nsis/*.exe
             src-tauri/target/release/stitchflow.exe
+            release-dist/stitchflow-v0.1.0-windows-x64.zip
           draft: false
           prerelease: false
-          generate_release_notes: true
+          generate_release_notes: false
+
