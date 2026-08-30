@@ -104,6 +104,16 @@ class TestEmbroideryEngine(unittest.TestCase):
         self.assertNotEqual(code, 0)
         self.assertIn("not found", stderr)
 
+    def test_safe_writer_fallback(self):
+        # HUS is read-only in pyembroidery; export should transparently fall back to PES/DST
+        target_hus = self.test_dir / "sample_exported.hus"
+        code, stdout, stderr = self.run_engine("export", str(self.dst_sample), str(target_hus), "hus")
+        self.assertEqual(code, 0, f"Export fallback failed: {stderr}")
+        data = json.loads(stdout)
+        self.assertEqual(data["status"], "ok")
+        self.assertIn(data["format"], ["PES", "DST"])
+
 
 if __name__ == "__main__":
     unittest.main()
+
