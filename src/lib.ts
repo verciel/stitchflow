@@ -486,7 +486,15 @@ export async function getWorkflowAdvice(designId: string): Promise<string> {
   return invoke("get_workflow_advice", { designId });
 }
 
+export async function askAiCustom(designId: string, userPrompt: string): Promise<string> {
+  if (!hasTauri()) {
+    return `AI Production Advice for design:\n- Recommended Stabilizer: 2.5oz Cutaway\n- Needle: 75/11 Ballpoint for knits\n- Suitable for scaling up to 110% without re-digitizing.`;
+  }
+  return invoke("ask_ai_custom", { designId, userPrompt });
+}
+
 // Utility
+
 export async function readImageData(path: string): Promise<string> {
   return invoke("read_image_data", { path });
 }

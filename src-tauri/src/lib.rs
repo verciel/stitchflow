@@ -119,7 +119,7 @@ pub fn run() {
             analyze_designs,
             apply_ai_suggestion,
             natural_language_search,
-            get_workflow_advice,
+            ask_ai_custom,
             // Utility
             read_image_data,
         ])
