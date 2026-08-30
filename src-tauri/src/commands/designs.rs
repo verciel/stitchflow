@@ -373,9 +373,12 @@ pub fn delete_design(state: State<AppState>, id: String) -> Result<(), String> {
         .map_err(|e| e.to_string())?;
 
     let src = PathBuf::from(&managed_path_str);
+    let recycle_dir = state.library_root.join("recycle");
+    let _ = fs::create_dir_all(&recycle_dir);
+
     if src.exists() {
         if let Some(file_name) = src.file_name() {
-            let dst = state.library_root.join("recycle").join(file_name);
+            let dst = recycle_dir.join(file_name);
             let _ = fs::rename(&src, &dst);
         }
     }
@@ -402,6 +405,9 @@ pub fn restore_design(state: State<AppState>, id: String) -> Result<(), String> 
         .map_err(|e| e.to_string())?;
 
     let orig_path = PathBuf::from(&managed_path_str);
+    if let Some(parent) = orig_path.parent() {
+        let _ = fs::create_dir_all(parent);
+    }
     if let Some(file_name) = orig_path.file_name() {
         let recycled_path = state.library_root.join("recycle").join(file_name);
         if recycled_path.exists() {
@@ -451,6 +457,13 @@ pub fn permanent_delete_design(state: State<AppState>, id: String) -> Result<(),
     }
 
     // Delete all related database rows
+    let _ = db.execute("DELETE FROM design_tags WHERE design_id = ?1", params![id]);
+    let _ = db.execute("DELETE FROM collection_designs WHERE design_id = ?1", params![id]);
+    let _ = db.execute("DELETE FROM job_designs WHERE design_id = ?1", params![id]);
+    let _ = db.execute("DELETE FROM design_assets WHERE design_id = ?1", params![id]);
+    let _ = db.execute("DELETE FROM design_revisions WHERE design_id = ?1", params![id]);
+    let _ = db.execute("DELETE FROM ai_suggestions WHERE design_id = ?1", params![id]);
+    let _ = db.execute("DELETE FROM design_search WHERE design_id = ?1", params![id]);
     db.execute("DELETE FROM designs WHERE id = ?1", params![id])
         .map_err(|e| e.to_string())?;
 
@@ -462,27 +475,67 @@ pub fn empty_recycle_bin(state: State<AppState>) -> Result<usize, String> {
     let db = state.db.lock().map_err(|_| "Database is busy")?;
 
     let mut stmt = db
-        .prepare("SELECT id FROM designs WHERE status = 'recycled'")
+        .prepare("SELECT id, managed_path, preview_path FROM designs WHERE status = 'recycled'")
         .map_err(|e| e.to_string())?;
 
-    let ids: Vec<String> = stmt
-        .query_map([], |r| r.get(0))
+    let rows: Vec<(String, String, Option<String>)> = stmt
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))
         .map_err(|e| e.to_string())?
-        .collect::<Result<Vec<_>, _>>()
-        .unwrap_or_default();
+        .filter_map(|r| r.ok())
+        .collect();
 
     drop(stmt);
-    drop(db);
 
-    let count = ids.len();
-    for id in ids {
-        let _ = permanent_delete_design(state.clone(), id);
+    let count = rows.len();
+
+    // 1. Delete physical files from disk
+    for (id, managed_path_str, preview_path_opt) in &rows {
+        let managed_path = PathBuf::from(managed_path_str);
+        if managed_path.exists() {
+            let _ = fs::remove_file(&managed_path);
+        }
+        if let Some(file_name) = managed_path.file_name() {
+            let recycle_file = state.library_root.join("recycle").join(file_name);
+            if recycle_file.exists() {
+                let _ = fs::remove_file(recycle_file);
+            }
+        }
+        if let Some(p) = preview_path_opt {
+            let prev_path = PathBuf::from(p);
+            if prev_path.exists() {
+                let _ = fs::remove_file(prev_path);
+            }
+        }
+
+        let _ = db.execute("DELETE FROM design_tags WHERE design_id = ?1", params![id]);
+        let _ = db.execute("DELETE FROM collection_designs WHERE design_id = ?1", params![id]);
+        let _ = db.execute("DELETE FROM job_designs WHERE design_id = ?1", params![id]);
+        let _ = db.execute("DELETE FROM design_assets WHERE design_id = ?1", params![id]);
+        let _ = db.execute("DELETE FROM design_revisions WHERE design_id = ?1", params![id]);
+        let _ = db.execute("DELETE FROM ai_suggestions WHERE design_id = ?1", params![id]);
+        let _ = db.execute("DELETE FROM design_search WHERE design_id = ?1", params![id]);
     }
+
+    // 2. Clear any lingering files inside the recycle folder
+    let recycle_dir = state.library_root.join("recycle");
+    if let Ok(entries) = fs::read_dir(&recycle_dir) {
+        for entry in entries.flatten() {
+            let p = entry.path();
+            if p.is_file() {
+                let _ = fs::remove_file(p);
+            }
+        }
+    }
+
+    // 3. Delete rows from SQLite
+    db.execute("DELETE FROM designs WHERE status = 'recycled'", [])
+        .map_err(|e| e.to_string())?;
 
     Ok(count)
 }
 
 #[tauri::command]
+
 pub fn export_design(
     state: State<AppState>,
     id: String,

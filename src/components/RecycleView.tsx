@@ -1,6 +1,6 @@
 import React from "react";
 import { ArchiveRestore, Trash2, Undo2 } from "lucide-react";
-import { emptyRecycleBin, permanentDeleteDesign, restoreDesign } from "../lib";
+import { confirmDialog, emptyRecycleBin, permanentDeleteDesign, restoreDesign } from "../lib";
 import type { Design } from "../types";
 import { DesignImage } from "./DesignImage";
 
@@ -31,11 +31,11 @@ export const RecycleView: React.FC<RecycleViewProps> = ({
     title: string
   ) => {
     e.stopPropagation();
-    if (
-      confirm(
-        `Permanently delete "${title}"? This cannot be undone and deletes the file from disk.`
-      )
-    ) {
+    const ok = await confirmDialog(
+      `Permanently delete "${title}"? This cannot be undone and deletes the file from disk.`,
+      "Delete Permanently"
+    );
+    if (ok) {
       try {
         await permanentDeleteDesign(id);
         onRefresh();
@@ -46,11 +46,11 @@ export const RecycleView: React.FC<RecycleViewProps> = ({
   };
 
   const handleEmptyAll = async () => {
-    if (
-      confirm(
-        `Permanently delete all ${recycledDesigns.length} items in the recycle area? This cannot be recovered.`
-      )
-    ) {
+    const ok = await confirmDialog(
+      `Permanently delete all ${recycledDesigns.length} items in the recycle area? This cannot be recovered.`,
+      "Empty Recycle Bin"
+    );
+    if (ok) {
       try {
         await emptyRecycleBin();
         onRefresh();

@@ -693,11 +693,13 @@ export const App: React.FC = () => {
           onRestoreDesign={async (id) => {
             try {
               await restoreDesign(id);
+              setSelectedDesign(null);
               await reloadData();
             } catch (err) {
               console.error(err);
             }
           }}
+
         />
       )}
 

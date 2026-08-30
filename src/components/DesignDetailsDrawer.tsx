@@ -21,6 +21,7 @@ import {
   addDesignToCollection,
   addDesignToJob,
   addTagToDesign,
+  confirmDialog,
   exportDesign,
   formatError,
   getDesignDetails,
@@ -249,11 +250,11 @@ export const DesignDetailsDrawer: React.FC<DesignDetailsDrawerProps> = ({
         msg.toLowerCase().includes("path") ||
         msg.toLowerCase().includes("executable")
       ) {
-        if (
-          confirm(
-            "Inkscape executable path is not configured. Would you like to select inkscape.exe now?"
-          )
-        ) {
+        const ok = await confirmDialog(
+          "Inkscape executable path is not configured. Would you like to select inkscape.exe now?",
+          "Configure Inkscape"
+        );
+        if (ok) {
           try {
             const file = await open({
               multiple: false,
@@ -651,12 +652,19 @@ export const DesignDetailsDrawer: React.FC<DesignDetailsDrawerProps> = ({
             </button>
             <button
               className="danger flex-1"
-              onClick={() => {
-                if (confirm("Permanently delete this design? This cannot be undone.")) {
-                  void permanentDeleteDesign(d.id).then(() => {
+              onClick={async () => {
+                const ok = await confirmDialog(
+                  "Permanently delete this design? This cannot be undone.",
+                  "Delete Permanently"
+                );
+                if (ok) {
+                  try {
+                    await permanentDeleteDesign(d.id);
                     onClose();
                     onRefreshCatalog();
-                  });
+                  } catch (err) {
+                    console.error("Permanent delete failed:", err);
+                  }
                 }
               }}
             >

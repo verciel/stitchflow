@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Boxes, Edit3, Plus, Trash2 } from "lucide-react";
-import { createJob, deleteJob, updateJob } from "../lib";
+import { confirmDialog, createJob, deleteJob, updateJob } from "../lib";
 import type { Job } from "../types";
 
 interface JobsViewProps {
@@ -45,7 +45,11 @@ export const JobsView: React.FC<JobsViewProps> = ({
 
   const handleDelete = async (e: React.MouseEvent, id: string, jobTitle: string) => {
     e.stopPropagation();
-    if (confirm(`Delete job "${jobTitle}"? Linked designs will NOT be deleted.`)) {
+    const ok = await confirmDialog(
+      `Delete job "${jobTitle}"? Linked designs will NOT be deleted.`,
+      "Delete Job"
+    );
+    if (ok) {
       try {
         await deleteJob(id);
         onRefresh();

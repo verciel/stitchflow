@@ -460,11 +460,11 @@ export const AiReviewModal: React.FC<AiReviewModalProps> = ({
               </div>
 
               {/* Embroidery Style Mode Selector */}
-              <div style={{ marginBottom: "16px" }}>
-                <label className="text-xs font-bold text-subtle" style={{ display: "block", marginBottom: "6px" }}>
+              <div style={{ marginBottom: "18px" }}>
+                <label className="text-xs font-bold text-subtle" style={{ display: "block", marginBottom: "8px" }}>
                   EMBROIDERY STYLE PRESET
                 </label>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "6px" }}>
+                <div className="ai-style-grid">
                   {[
                     { id: "patch", label: "🎨 3-Color Patch", desc: "Bold black borders & flat solid fills" },
                     { id: "silhouette", label: "🖤 Silhouette", desc: "Solid black cutout, zero gradients" },
@@ -476,19 +476,12 @@ export const AiReviewModal: React.FC<AiReviewModalProps> = ({
                     <button
                       key={st.id}
                       type="button"
-                      className={`compact-btn ${selectedStyle === st.id ? "primary" : "secondary"}`}
-                      style={{
-                        textAlign: "left",
-                        padding: "6px 10px",
-                        display: "flex",
-                        flexDirection: "column",
-                        border: selectedStyle === st.id ? "2px solid var(--accent)" : "1px solid var(--border-color)",
-                      }}
+                      className={`ai-style-btn ${selectedStyle === st.id ? "active" : ""}`}
                       onClick={() => setSelectedStyle(st.id)}
                       disabled={generatingImg || digitizing}
                     >
-                      <span style={{ fontWeight: "bold", fontSize: "12px" }}>{st.label}</span>
-                      <span style={{ fontSize: "10px", opacity: 0.8 }}>{st.desc}</span>
+                      <span className="ai-style-btn-title">{st.label}</span>
+                      <span className="ai-style-btn-desc">{st.desc}</span>
                     </button>
                   ))}
                 </div>

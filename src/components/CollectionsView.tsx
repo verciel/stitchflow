@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Folder, FolderPlus, MoreVertical, Plus, Trash2 } from "lucide-react";
-import { createCollection, deleteCollection } from "../lib";
+import { confirmDialog, createCollection, deleteCollection } from "../lib";
 import type { Collection } from "../types";
 
 interface CollectionsViewProps {
@@ -38,11 +38,11 @@ export const CollectionsView: React.FC<CollectionsViewProps> = ({
 
   const handleDelete = async (e: React.MouseEvent, id: string, title: string) => {
     e.stopPropagation();
-    if (
-      confirm(
-        `Delete collection "${title}"? Designs inside this collection will NOT be deleted.`
-      )
-    ) {
+    const ok = await confirmDialog(
+      `Delete collection "${title}"? Designs inside this collection will NOT be deleted.`,
+      "Delete Collection"
+    );
+    if (ok) {
       try {
         await deleteCollection(id);
         onRefresh();

@@ -622,6 +622,20 @@ button {
   box-shadow: 0 0 0 2px var(--primary-teal), 0 8px 24px rgba(47, 133, 125, 0.15);
 }
 
+.design-card.recycled {
+  opacity: 0.92;
+  border-style: dashed;
+}
+
+.recycled-card-actions {
+  display: flex;
+  gap: 8px;
+  padding: 8px 12px 12px;
+  border-top: 1px solid var(--border-color);
+  background: var(--bg-hover);
+}
+
+
 /* Stitch Preview Canvas */
 .design-image-container {
   height: 165px;
@@ -1883,6 +1897,63 @@ input:checked + .slider:before {
   flex-direction: column;
   align-items: center;
   gap: 10px;
+}
+
+/* AI Embroidery Style Presets Grid & Cards */
+.ai-style-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.ai-style-btn {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-start !important;
+  justify-content: center !important;
+  text-align: left;
+  padding: 10px 12px !important;
+  min-height: 60px !important;
+  height: auto !important;
+  border-radius: var(--radius-sm, 6px);
+  border: 1.5px solid var(--border-color, #e2e8f0) !important;
+  background: var(--card-bg, #ffffff) !important;
+  color: var(--text-main, #1e293b) !important;
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+  box-sizing: border-box;
+}
+
+.ai-style-btn:hover:not(:disabled) {
+  border-color: var(--accent, #ea580c) !important;
+  background: rgba(234, 88, 12, 0.05) !important;
+}
+
+.ai-style-btn.active {
+  border-color: var(--accent, #ea580c) !important;
+  background: var(--accent, #ea580c) !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 8px rgba(234, 88, 12, 0.28);
+}
+
+.ai-style-btn-title {
+  font-weight: 700;
+  font-size: 12.5px;
+  line-height: 1.25;
+  margin-bottom: 3px;
+  display: block;
+}
+
+.ai-style-btn-desc {
+  font-size: 10.5px;
+  line-height: 1.25;
+  opacity: 0.8;
+  display: block;
+}
+
+.ai-style-btn.active .ai-style-btn-desc {
+  opacity: 0.95;
+  color: #ffffff;
 }
 
 /* Animations */

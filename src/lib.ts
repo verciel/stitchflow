@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { ask } from "@tauri-apps/plugin-dialog";
 import type {
   AiConfig,
   AiSuggestion,
@@ -255,19 +256,36 @@ export async function updateDesignMetadata(
   return invoke("update_design_metadata", { id, title, description });
 }
 
+export async function confirmDialog(message: string, title = "Confirm Action"): Promise<boolean> {
+  if (hasTauri()) {
+    try {
+      return await ask(message, { title, kind: "warning" });
+    } catch {
+      // Fallback to browser confirm if plugin dialog fails
+    }
+  }
+  return typeof window !== "undefined" ? window.confirm(message) : true;
+}
+
 export async function deleteDesign(id: string): Promise<void> {
+  if (!hasTauri()) return;
   return invoke("delete_design", { id });
 }
 
 export async function restoreDesign(id: string): Promise<void> {
+  if (!hasTauri()) return;
   return invoke("restore_design", { id });
 }
 
 export async function permanentDeleteDesign(id: string): Promise<void> {
+  if (!hasTauri()) return;
   return invoke("permanent_delete_design", { id });
 }
 
 export async function emptyRecycleBin(): Promise<number> {
+  if (!hasTauri()) {
+    return 0;
+  }
   return invoke("empty_recycle_bin");
 }
 

@@ -9,6 +9,7 @@ import {
   Trash2,
 } from "lucide-react";
 import {
+  confirmDialog,
   deleteArtwork,
   importFiles,
   listArtwork,
@@ -25,25 +26,22 @@ export const ArtworkView: React.FC = () => {
   const reload = async () => {
     try {
       setLoading(true);
-      const list = await listArtwork();
-      setAssets(list);
+      const res = await listArtwork();
+      setAssets(res);
 
-      // Load image data for image assets
-      for (const item of list) {
-        if (
-          item.mimeType.includes("image") &&
-          !item.mimeType.includes("pdf") &&
-          !thumbnails[item.id]
-        ) {
-          readImageData(item.managedPath)
-            .then((data) => {
-              setThumbnails((prev) => ({ ...prev, [item.id]: data }));
-            })
-            .catch(() => {});
+      // Load previews for image types asynchronously
+      for (const a of res) {
+        if (a.mimeType.startsWith("image/")) {
+          try {
+            const dataUrl = await readImageData(a.managedPath);
+            setThumbnails((prev) => ({ ...prev, [a.id]: dataUrl }));
+          } catch {
+            // Preview missing or unreadable
+          }
         }
       }
     } catch (err) {
-      console.error(err);
+      console.error("Failed to list artwork assets:", err);
     } finally {
       setLoading(false);
     }
@@ -55,18 +53,21 @@ export const ArtworkView: React.FC = () => {
 
   const handleImport = async () => {
     try {
-      const selection = await open({
+      const selected = await open({
         multiple: true,
+        title: "Import Artwork Assets (PNG, JPG, PDF, SVG, AI, EPS)",
         filters: [
           {
-            name: "Artwork Assets",
-            extensions: ["png", "jpg", "jpeg", "svg", "pdf"],
+            name: "Supported Artwork",
+            extensions: ["png", "jpg", "jpeg", "pdf", "svg", "ai", "eps"],
           },
         ],
       });
 
-      if (!selection) return;
-      const paths = Array.isArray(selection) ? selection : [selection];
+      if (!selected) return;
+      const paths = Array.isArray(selected) ? selected : [selected];
+      if (paths.length === 0) return;
+
       await importFiles(paths, "skip");
       await reload();
     } catch (err) {
@@ -75,7 +76,8 @@ export const ArtworkView: React.FC = () => {
   };
 
   const handleDelete = async (id: string, name: string) => {
-    if (confirm(`Remove artwork asset "${name}"?`)) {
+    const ok = await confirmDialog(`Remove artwork asset "${name}"?`, "Remove Artwork");
+    if (ok) {
       try {
         await deleteArtwork(id);
         await reload();

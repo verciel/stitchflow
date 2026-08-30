@@ -630,8 +630,8 @@ pub async fn generate_ai_design_image(
         .unwrap_or_else(|_| (design_id.clone(), "PES".to_string(), Some(50.0), Some(50.0), None, None, None))
     };
 
-    // 2. Fetch optional custom endpoint settings
-    let (custom_token, custom_endpoint) = {
+    // 2. Fetch optional custom endpoint and AI provider settings
+    let (custom_token, custom_endpoint, ai_api_key, ai_endpoint) = {
         let db = state.db.lock().map_err(|_| "Database is busy")?;
         let get_val = |k: &str, def: &str| -> String {
             db.query_row(
@@ -644,6 +644,8 @@ pub async fn generate_ai_design_image(
         (
             get_val("hf_api_token", ""),
             get_val("hf_model", ""),
+            get_val("ai_api_key", ""),
+            get_val("ai_endpoint", ""),
         )
     };
 
@@ -659,28 +661,27 @@ pub async fn generate_ai_design_image(
 
     let prompt = match mode {
         "silhouette" => format!(
-            "solid black silhouette cutout of {clean_theme}, flat black stencil icon, single color solid shape, isolated on pure solid white background, high contrast vector graphic, no interior details, no shading, no gradients, no photorealism"
+            "solid black silhouette icon of {clean_theme}, clean stencil vector graphic, crisp cutout shape, pure solid black on pure solid white background, high contrast, minimalist symbol, no grey tones, no shading, no gradients, no borders, no circular frame, no background textures"
         ),
         "patch" => format!(
-            "die-cut embroidered patch badge of {clean_theme}, bold thick black satin outline border, 3 flat solid color fills, clean vector sticker art, isolated on pure white background, screenprint graphic, no gradients, no soft shading, no 3D textures, no shadows"
+            "flat 2D vector embroidered patch of {clean_theme}, clean bold black outlines, 3 solid flat vibrant colors, minimalist cartoon sticker illustration, isolated on pure white background, screenprint graphic, no gradients, no soft shading, no 3D textures, no shadows, no frame"
         ),
         "line_art" => format!(
-            "continuous single line art outline of {clean_theme}, vintage redwork embroidery line drawing, clean black line illustration, no fills, no color, no shading, minimalist contour drawing on pure white background, no gradients"
+            "clean 2D black line art drawing of {clean_theme}, coloring book page, crisp black vector outlines on pure white background, minimalist line illustration, continuous contour lines, no colors, no fills, no shading, no gray, no circular frame, no background textures"
         ),
         "crest" => format!(
-            "vintage heraldic crest emblem of {clean_theme}, symmetrical collegiate shield badge with laurel wreath and ribbon, flat vector engraving style, clean bold shapes, isolated on pure white background, no gradients, no shading"
+            "collegiate sports emblem crest of {clean_theme}, collegiate shield badge with bold clean vector graphic, flat solid colors, isolated on pure white background, sharp vintage crest, no 3D, no gradients, no shading"
         ),
         "floral" => format!(
-            "stylized botanical floral embroidery motif of {clean_theme}, flat folk art meadow flowers and leaves, clean solid shapes, bold color separation, isolated on pure white background, no gradients, no 3D textures"
+            "folk art floral motif featuring {clean_theme}, stylized decorative botanical flowers and leaves around {clean_theme}, Scandinavian flat folk art, bold clean outlines, vibrant flat solid colors, isolated on pure white background, no gradients, no shadows"
         ),
         "applique" => format!(
-            "minimalist flat appliqué shapes of {clean_theme}, simple bold outlines, clean solid cartoon shapes, minimal interior lines, isolated on pure white background, no texture, no gradients"
+            "simple flat appliqué design of {clean_theme}, large simplified cartoon shapes with clean black stitch outlines, flat solid color fills, cute minimalist patch, isolated on pure white background, no textures, no gradients, no shadows"
         ),
         _ => format!(
             "simple flat 2D vector embroidery patch of {clean_theme}, bold black contour lines, solid flat color fills, minimalist clip art, die-cut embroidered sticker graphic, isolated on pure white background, no gradients, no soft shading, no 3D rendering, no shadows, no photorealism"
         ),
     };
-
 
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(45))
@@ -688,19 +689,27 @@ pub async fn generate_ai_design_image(
         .build()
         .map_err(|e| e.to_string())?;
 
+    // Determine target endpoint (Explicit Custom Endpoint -> OpenAI / DALL-E if key configured -> Free Instant Generator)
+    let effective_endpoint = if custom_endpoint.starts_with("http://") || custom_endpoint.starts_with("https://") {
+        Some((custom_endpoint.clone(), custom_token.clone()))
+    } else if !ai_api_key.trim().is_empty() && ai_endpoint.contains("api.openai.com") {
+        Some(("https://api.openai.com/v1/images/generations".to_string(), ai_api_key.trim().to_string()))
+    } else {
+        None
+    };
 
-    let image_bytes: Vec<u8> = if custom_endpoint.starts_with("http://") || custom_endpoint.starts_with("https://") {
-        // Dedicated custom endpoint (OpenAI, Together, Hugging Face, Automatic1111, or Custom API)
-        let mut req = client.post(&custom_endpoint);
-        if !custom_token.trim().is_empty() {
-            req = req.bearer_auth(custom_token.trim());
+    let image_bytes: Vec<u8> = if let Some((endpoint_url, auth_token)) = effective_endpoint {
+        // Dedicated custom or OpenAI DALL-E endpoint
+        let mut req = client.post(&endpoint_url);
+        if !auth_token.is_empty() {
+            req = req.bearer_auth(&auth_token);
         }
         let resp = req
             .json(&json!({
                 "inputs": prompt,
                 "prompt": prompt,
                 "n": 1,
-                "size": "512x512",
+                "size": "1024x1024",
                 "response_format": "b64_json"
             }))
             .send()
@@ -740,7 +749,6 @@ pub async fn generate_ai_design_image(
             resp.bytes().await.map_err(|e| format!("Failed to read image bytes: {e}"))?.to_vec()
         }
     } else {
-
         // High-reliability Instant Free Image Generation (No API Key Required)
         let seed = chrono::Utc::now().timestamp_subsec_millis();
         let encoded_prompt: String = prompt
@@ -749,14 +757,23 @@ pub async fn generate_ai_design_image(
             .collect();
 
         let instant_url = format!(
-            "https://image.pollinations.ai/prompt/{encoded_prompt}?width=512&height=512&nologo=true&seed={seed}"
+            "https://image.pollinations.ai/prompt/{encoded_prompt}?width=768&height=768&nologo=true&seed={seed}"
         );
 
-        let resp = client
+        let mut resp = client
             .get(&instant_url)
             .send()
             .await
             .map_err(|e| format!("Connection to design generator failed: {e}"))?;
+
+        if resp.status().as_u16() == 429 {
+            std::thread::sleep(Duration::from_millis(2000));
+            resp = client
+                .get(&instant_url)
+                .send()
+                .await
+                .map_err(|e| format!("Connection to design generator failed: {e}"))?;
+        }
 
         if !resp.status().is_success() {
             let status = resp.status();
